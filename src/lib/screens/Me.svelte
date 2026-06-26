@@ -11,7 +11,11 @@
   import ConnectionSettings from "$lib/components/ConnectionSettings.svelte";
   import VisionTool from "$lib/components/VisionTool.svelte";
   import MedTracker from "$lib/components/MedTracker.svelte";
+  import DoomBox from "$lib/components/DoomBox.svelte";
+  import Handover from "$lib/components/Handover.svelte";
   import AvatarPicker from "$lib/components/AvatarPicker.svelte";
+
+  let showHandover = $state(false);
   import type { Profile, ProfileRole } from "$lib/types";
 
   // Verbindungstest beim Öffnen, falls konfiguriert.
@@ -241,6 +245,15 @@
         />
       </label>
       <label class="flex items-center justify-between py-3">
+        <span>Gesprochene Erinnerungen <span class="text-ink-faint">(offline)</span></span>
+        <input
+          type="checkbox"
+          class="h-6 w-6 accent-calm"
+          checked={$settings.voiceNudges}
+          onchange={(e) => settings.patch({ voiceNudges: e.currentTarget.checked })}
+        />
+      </label>
+      <label class="flex items-center justify-between py-3">
         <span>Größere Schrift</span>
         <input
           type="checkbox"
@@ -283,6 +296,19 @@
 
   <!-- Medikation -->
   <MedTracker />
+
+  <!-- Übergabe-Modus -->
+  <section class="card">
+    <h2 class="mb-1 text-lg font-bold">🤝 Übergabe für Betreuer</h2>
+    <p class="mb-3 text-sm text-ink-faint">
+      Eine saubere „Spezialanleitung" (Routine, Medikationszeiten, De-Eskalations-Sätze) für Oma,
+      Babysitter oder die Betreuung — zum Ausdrucken oder als PDF. Kein Neuerklären mehr.
+    </p>
+    <button class="btn-soft w-full" onclick={() => (showHandover = true)}>Anleitung erstellen</button>
+  </section>
+
+  <!-- Doom Box (Archiv) -->
+  <DoomBox />
 
   <!-- Foto-Helfer (Vision) -->
   <VisionTool />
@@ -348,3 +374,7 @@
     </section>
   {/if}
 </div>
+
+{#if showHandover}
+  <Handover onclose={() => (showHandover = false)} />
+{/if}

@@ -3,6 +3,7 @@
   // Überforderung. "Erledigt" → nächster Schritt mit kleiner Belohnungs-Animation.
   import type { Routine } from "$lib/types";
   import { timers } from "$lib/stores/timers";
+  import { routines } from "$lib/stores/routines";
   import { profiles } from "$lib/stores/profiles";
   import { settings } from "$lib/stores/settings";
   import { pet } from "$lib/stores/pet";
@@ -18,6 +19,11 @@
 
   let index = $state(0);
   let justDone = $state(false);
+
+  // Doom-Box: Routine gilt als benutzt (wird nicht eingeschläfert).
+  $effect(() => {
+    void routines.touch(routine.id);
+  });
 
   const active = $derived($profiles.find((p) => p.id === $settings.activeProfileId) ?? null);
   const total = $derived(routine.steps.length);

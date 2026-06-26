@@ -10,7 +10,7 @@
   import { medications, todayAt, takenAround } from "$lib/stores/medications";
   import { now } from "$lib/stores/clock";
   import { route } from "$lib/router";
-  import { openBrainDump, openCoach, openCalm, openPropose } from "$lib/stores/ui";
+  import { openBrainDump, openCoach, openCalm, openPropose, openSos, openWhere } from "$lib/stores/ui";
   import { relativeWhen, hhmm, leaveTime } from "$lib/date";
   import { stageFor } from "$lib/pet";
   import TimerView from "$lib/components/TimerView.svelte";
@@ -91,6 +91,14 @@
     <p class="text-ink-faint">{greeting()}{active ? `, ${active.name}` : ""} 👋</p>
     <p class="mt-1 text-lg font-semibold">Schön, dass du da bist. Alles in deinem Tempo.</p>
   </section>
+
+  <!-- SOS: Akut-Co-Regulation (immer einen Tap entfernt) -->
+  <button
+    class="flex w-full items-center justify-center gap-2 rounded-3xl border-2 border-gentle/60 bg-gentle/10 py-4 text-lg font-bold text-gentle active:scale-[0.99]"
+    onclick={openSos}
+  >
+    🆘 SOS – Akuter Meltdown
+  </button>
 
   <!-- Braucht deine Aufmerksamkeit -->
   {#if attention.length}
@@ -211,7 +219,9 @@
   <!-- Schnellzugänge -->
   <section class="grid grid-cols-2 gap-3">
     <button class="btn-soft py-4" onclick={openBrainDump}>💡 Gedanke festhalten</button>
+    <button class="btn-soft py-4" onclick={openWhere}>🔎 Wo ist …?</button>
     <button class="btn-soft py-4" onclick={openCalm}>🌿 Ruhe-Ecke</button>
+    <button class="btn-soft py-4" onclick={openCoach}>💬 Coach</button>
   </section>
 
   {#if !active}

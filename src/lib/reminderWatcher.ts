@@ -3,7 +3,7 @@
 import { get } from "svelte/store";
 import { appointments } from "./stores/appointments";
 import { deadlines } from "./stores/deadlines";
-import { medications, todayAt, takenAround } from "./stores/medications";
+import { medications, todayAt, takenAround, daysLeft, refillDue } from "./stores/medications";
 import { db } from "./db";
 import { deliverReminder } from "./notify";
 import { warnCue } from "./feedback";
@@ -71,6 +71,17 @@ async function checkDeadlines(nowMs: number) {
 function checkMedications(nowMs: number) {
   const list = get(medications) as Medication[];
   for (const m of list) {
+    // Rezept-Vorlauf-Warner (BTM oft nur 30 Tage, Termine/Vorbereitung dauern): einmal pro Tag.
+    if (refillDue(m)) {
+      const key = `refill-${m.id}-${ymd(nowMs)}`;
+      if (once(key)) {
+        const d = daysLeft(m);
+        deliverReminder(
+          `📋 Rezept besorgen: ${m.name}`,
+          `Bestand reicht noch ~${d} Tage${m.isBtm ? " (BTM — früh anrufen!)" : ""}.`,
+        );
+      }
+    }
     for (const time of m.times) {
       const ts = todayAt(time);
       // Fällig: Zeit erreicht, innerhalb 2 h, heute noch nicht eingenommen.

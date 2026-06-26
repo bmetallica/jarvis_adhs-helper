@@ -30,16 +30,25 @@ function createMedications() {
     await load();
   }
 
-  /** Einnahme jetzt festhalten. */
+  /** Einnahme jetzt festhalten (+ Bestand verringern, falls geführt). */
   async function take(id: string) {
     const m = get({ subscribe }).find((x) => x.id === id);
     if (!m) return;
     const log = [...m.log, Date.now()].slice(-60);
-    await (await db()).put("medications", { ...m, log });
+    const stockCount = m.stockCount != null ? Math.max(0, m.stockCount - (m.dailyDose && m.times.length ? 1 : 1)) : m.stockCount;
+    await (await db()).put("medications", { ...m, log, stockCount });
     await load();
   }
 
-  return { subscribe, load, add, update, remove, take };
+  /** Bestand manuell setzen (nach Abholung in der Apotheke). */
+  async function setStock(id: string, count: number) {
+    const m = get({ subscribe }).find((x) => x.id === id);
+    if (!m) return;
+    await (await db()).put("medications", { ...m, stockCount: Math.max(0, Math.round(count)) });
+    await load();
+  }
+
+  return { subscribe, load, add, update, remove, take, setStock };
 }
 
 export const medications = createMedications();
@@ -84,4 +93,21 @@ export function reboundText(m: Medication): string | null {
 export function takenTodayCount(m: Medication): number {
   const today = ymd(Date.now());
   return m.log.filter((l) => ymd(l) === today).length;
+}
+
+/** Reichweite in Tagen (Bestand / Tagesdosis bzw. Einnahmen pro Tag). */
+export function daysLeft(m: Medication): number | null {
+  if (m.stockCount == null) return null;
+  const perDay = m.dailyDose && m.dailyDose > 0 ? m.dailyDose : Math.max(1, m.times.length);
+  return Math.floor(m.stockCount / perDay);
+}
+
+export function refillLead(m: Medication): number {
+  return m.refillLeadDays ?? 21;
+}
+
+/** Soll bald ein Rezept besorgt werden? */
+export function refillDue(m: Medication): boolean {
+  const d = daysLeft(m);
+  return d != null && d <= refillLead(m);
 }

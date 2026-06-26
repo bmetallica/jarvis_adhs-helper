@@ -60,6 +60,7 @@ function createRoutines() {
       steps: data.steps,
       profileId,
       createdAt: Date.now(),
+      lastTouchedAt: Date.now(),
     };
     await (await db()).put("routines", r);
     await load();
@@ -85,11 +86,26 @@ function createRoutines() {
     await load();
   }
 
+  /** Doom-Box: als „benutzt" markieren (beim Start einer Routine) → wird nicht eingeschläfert. */
+  async function touch(id: string) {
+    const r = get({ subscribe }).find((x) => x.id === id);
+    if (!r) return;
+    await (await db()).put("routines", { ...r, lastTouchedAt: Date.now(), archived: false });
+    await load();
+  }
+
+  async function setArchived(id: string, archived: boolean) {
+    const r = get({ subscribe }).find((x) => x.id === id);
+    if (!r) return;
+    await (await db()).put("routines", { ...r, archived, lastTouchedAt: archived ? r.lastTouchedAt : Date.now() });
+    await load();
+  }
+
   function emptyStep(): RoutineStep {
     return { id: uid("s"), title: "", icon: "", durationSec: null };
   }
 
-  return { subscribe, load, add, addFromTemplate, update, remove, emptyStep, get: () => get({ subscribe }) };
+  return { subscribe, load, add, addFromTemplate, update, remove, touch, setArchived, emptyStep, get: () => get({ subscribe }) };
 }
 
 export const routines = createRoutines();

@@ -40,6 +40,8 @@ export async function requestNotifyPermission(): Promise<NotificationPermission>
 
 /** Sanfte Erinnerung lokal zustellen: System-Notification falls erlaubt, sonst In-App-Toast. */
 export function deliverReminder(title: string, body = "") {
+  // Optionales lokales Sprach-Nudging (offline). Lazy-Import vermeidet Zyklen.
+  void import("./feedback").then((f) => f.speak(`${title}. ${body}`.replace(/[🚶🗓️⏰💊✋⏳]/gu, "").trim()));
   let shown = false;
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try {

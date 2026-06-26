@@ -230,3 +230,8 @@ offline-first PWA. Verzeichnis: `/opt/adhs-helper` (Root). Tier: wächst mit den
   + Termin-Vorschlag mit Konfliktcheck & Auto-Anlage). Stores polls (DB v10), in Shared-Sync. Build grün.
 - 2026-06-26: **„Braucht deine Aufmerksamkeit"** auf Home (offene Abstimmungen/Termin-Anfragen, fällige
   Medikation, Tier-Geschenk, Posteingang) + Badges an der Bottom-Nav (Familie/Plan). Build + check grün.
+- 2026-06-26: **Roadmap v2 komplett umgesetzt** (siehe `ROADMAP_V2.md`) — SOS-Overwhelm, Such-Gedächtnis,
+  Safe-Food-Joker, Medikations-Bürokratie/Lieferengpass-Warner, Doom-Box, Übergabe-Modus, lokales
+  Sprach-Nudging + Pink Noise. DB v11. **Timer-Audio** lauter/länger + **Endlos-Alarm bis manuell
+  gestoppt** (globales Stopp-Banner), **Timer-Reiter** (Timer/Fokus/Hyperfokus). Screenshots in README.
+  Build + svelte-check grün (0/0).

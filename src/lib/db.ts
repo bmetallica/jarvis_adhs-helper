@@ -85,10 +85,22 @@ export interface AdhsDB extends DBSchema {
     key: string;
     value: import("./types").Poll;
   };
+  locations: {
+    key: string;
+    value: import("./types").LocationNote;
+  };
+  safefoods: {
+    key: string;
+    value: import("./types").SafeFood;
+  };
+  pharmacy: {
+    key: string;
+    value: import("./types").PharmacyNote;
+  };
 }
 
 const DB_NAME = "adhs-helper";
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 let _db: Promise<IDBPDatabase<AdhsDB>> | null = null;
 
@@ -136,6 +148,11 @@ export function db(): Promise<IDBPDatabase<AdhsDB>> {
         }
         if (oldVersion < 10) {
           database.createObjectStore("polls", { keyPath: "id" });
+        }
+        if (oldVersion < 11) {
+          database.createObjectStore("locations", { keyPath: "id" });
+          database.createObjectStore("safefoods", { keyPath: "id" });
+          database.createObjectStore("pharmacy", { keyPath: "id" });
         }
       },
     });

@@ -10,13 +10,16 @@
   import { tickReminders } from "$lib/reminderWatcher";
   import { pet } from "$lib/stores/pet";
   import { hyperfocus } from "$lib/stores/hyperfocus";
-  import { brainDumpOpen, openBrainDump, coachOpen, calmOpen, proposeOpen } from "$lib/stores/ui";
+  import { alarmsRunning, stopAllAlarms } from "$lib/feedback";
+  import { brainDumpOpen, openBrainDump, coachOpen, calmOpen, proposeOpen, sosOpen, whereOpen } from "$lib/stores/ui";
   import HyperfocusInterrupt from "$lib/components/HyperfocusInterrupt.svelte";
   import BottomNav from "$lib/components/BottomNav.svelte";
   import BrainDump from "$lib/components/BrainDump.svelte";
   import CoachChat from "$lib/components/CoachChat.svelte";
   import CalmCorner from "$lib/components/CalmCorner.svelte";
   import ProposeAppointment from "$lib/components/ProposeAppointment.svelte";
+  import SosOverwhelm from "$lib/components/SosOverwhelm.svelte";
+  import WhereIsIt from "$lib/components/WhereIsIt.svelte";
   import ToastHost from "$lib/components/ToastHost.svelte";
   import ProfileSwitcher from "$lib/components/ProfileSwitcher.svelte";
   import Home from "$lib/screens/Home.svelte";
@@ -135,10 +138,27 @@
   <ProposeAppointment onclose={() => proposeOpen.set(false)} />
 {/if}
 
+{#if $sosOpen}
+  <SosOverwhelm onclose={() => sosOpen.set(false)} />
+{/if}
+
+{#if $whereOpen}
+  <WhereIsIt onclose={() => whereOpen.set(false)} />
+{/if}
+
 {#if $auth.required && !$auth.authed}
   <MasterLogin />
 {:else if needLogin && $route !== "kiosk"}
   <LoginGate />
+{/if}
+
+{#if $alarmsRunning > 0}
+  <button
+    class="fixed inset-x-0 top-0 z-[85] flex items-center justify-center gap-2 bg-gentle py-3 text-lg font-bold text-surface-0 shadow-lg pt-[max(0.75rem,env(safe-area-inset-top))]"
+    onclick={stopAllAlarms}
+  >
+    ⏰ Timer abgelaufen — tippen zum Stoppen
+  </button>
 {/if}
 
 <ToastHost />

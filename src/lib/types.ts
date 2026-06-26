@@ -78,6 +78,9 @@ export interface Routine {
   steps: RoutineStep[];
   profileId: ID | null;
   createdAt: number;
+  /** Doom-Box: zuletzt benutzt / eingeschläfert. */
+  lastTouchedAt?: number;
+  archived?: boolean;
 }
 
 // --- Brain-Dump / Quick-Capture (Posteingang) ---
@@ -168,6 +171,9 @@ export interface ShoppingItem {
   /** Wer hinzugefügt hat (Profil-ID). */
   addedBy: ID | null;
   createdAt: number;
+  /** Doom-Box: zuletzt angefasst / eingeschläfert. */
+  lastTouchedAt?: number;
+  archived?: boolean;
 }
 
 // --- Essensplan ---
@@ -239,6 +245,41 @@ export interface Medication {
   reboundMin: number | null;
   /** Einnahme-Zeitstempel (zuletzt ~60). */
   log: number[];
+  /** Beschaffungs-Management (optional). */
+  stockCount?: number | null; // aktueller Bestand (Tabletten)
+  dailyDose?: number; // Tabletten pro Tag
+  refillLeadDays?: number; // Vorlauf für Rezept (Default 21)
+  isBtm?: boolean; // BTM (30-Tage-Regel, oft Lieferengpässe)
+  createdAt: number;
+}
+
+// --- Such-Gedächtnis: Standort-Notizen (Objektpermanenz für Gegenstände) ---
+
+export interface LocationNote {
+  id: ID;
+  /** Voller Satz, z. B. „Lukas' Zeugnis liegt im obersten Fach im Kleiderschrank." */
+  text: string;
+  profileId: ID | null;
+  createdAt: number;
+}
+
+// --- Safe-Food (Essensplan-Joker) ---
+
+export interface SafeFood {
+  id: ID;
+  text: string;
+  /** Textur/Sensorik-Tag (knusprig/weich/Suppe/…). */
+  texture: string;
+  createdAt: number;
+}
+
+// --- Apotheken-/Beschaffungs-Log (Medikation) ---
+
+export interface PharmacyNote {
+  id: ID;
+  medName: string;
+  text: string;
+  profileId: ID | null;
   createdAt: number;
 }
 
@@ -329,6 +370,8 @@ export interface Settings {
   haptics: boolean;
   /** Sound-Feedback erlauben. */
   sound: boolean;
+  /** Gesprochene Erinnerungen (lokales TTS, offline). */
+  voiceNudges: boolean;
   /** Größere Schrift (Barrierefreiheit). */
   largeText: boolean;
   /** Gut lesbare, dyslexie-freundlichere Schrift. */
@@ -344,6 +387,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   haptics: true,
   sound: true,
+  voiceNudges: false,
   largeText: false,
   readableFont: false,
   jarvisBaseUrl: "",

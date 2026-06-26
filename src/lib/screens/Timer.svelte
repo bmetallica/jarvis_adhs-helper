@@ -63,9 +63,23 @@
   );
 
   const fullscreenTimer = $derived($timers.find((t) => t.id === fullscreenId) ?? null);
+
+  type Tab = "timer" | "focus" | "hyper";
+  let tab = $state<Tab>("timer");
+  const runningCount = $derived($timers.filter((t) => t.status === "running" || t.status === "done").length);
 </script>
 
-<div class="flex flex-col gap-5">
+<div class="flex flex-col gap-4">
+  <!-- Reiter -->
+  <div class="flex gap-1 rounded-2xl bg-surface-1 p-1">
+    <button class="relative flex-1 rounded-xl px-3 py-2 text-sm font-semibold {tab === 'timer' ? 'bg-calm text-surface-0' : 'text-ink-soft'}" onclick={() => (tab = 'timer')}>
+      ⏳ Timer{#if runningCount}<span class="ml-1 rounded-full bg-joy px-1.5 text-xs text-surface-0">{runningCount}</span>{/if}
+    </button>
+    <button class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold {tab === 'focus' ? 'bg-calm text-surface-0' : 'text-ink-soft'}" onclick={() => (tab = 'focus')}>🎯 Fokus</button>
+    <button class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold {tab === 'hyper' ? 'bg-calm text-surface-0' : 'text-ink-soft'}" onclick={() => (tab = 'hyper')}>🌀 Hyperfokus</button>
+  </div>
+
+{#if tab === "timer"}
   <!-- Schnellstart -->
   <section class="card">
     <h2 class="mb-3 text-lg font-bold">Neuer Timer</h2>
@@ -95,6 +109,26 @@
     </div>
   </section>
 
+  <!-- Aktive Timer (gleich sichtbar im Timer-Reiter) -->
+  {#if running.length}
+    <section class="flex flex-col gap-4">
+      <h2 class="text-lg font-bold">Laufende Timer</h2>
+      {#each running as t (t.id)}
+        <div class="card">
+          <div class="mb-2 flex justify-end">
+            <button class="btn-ghost px-3 py-1 text-sm" onclick={() => (fullscreenId = t.id)}>⛶ Vollbild</button>
+          </div>
+          <TimerView timer={t} size={200} />
+        </div>
+      {/each}
+    </section>
+  {:else}
+    <section class="card text-center text-ink-faint">
+      Noch kein Timer läuft. Such dir oben eine Dauer aus — alles in deinem Tempo. 🌿
+    </section>
+  {/if}
+
+{:else if tab === "focus"}
   <!-- Fokus / Erster Schritt -->
   <section class="card">
     <h2 class="mb-1 text-lg font-bold">Fokus-Session</h2>
@@ -106,6 +140,7 @@
     </button>
   </section>
 
+{:else}
   <!-- Hyperfokus-Helfer mit Unterbrechung -->
   <section class="card">
     <h2 class="mb-1 text-lg font-bold">🌀 Hyperfokus-Fenster</h2>
@@ -131,27 +166,7 @@
       <button class="btn-primary mt-3 w-full" onclick={() => hyperfocus.start(hfMin, hfLabel)}>Fokus starten</button>
     {/if}
   </section>
-
-  <!-- Aktive Timer -->
-  {#if running.length}
-    <section class="flex flex-col gap-4">
-      <h2 class="text-lg font-bold">Laufende Timer</h2>
-      {#each running as t (t.id)}
-        <div class="card">
-          <div class="mb-2 flex justify-end">
-            <button class="btn-ghost px-3 py-1 text-sm" onclick={() => (fullscreenId = t.id)}>
-              ⛶ Vollbild
-            </button>
-          </div>
-          <TimerView timer={t} size={200} />
-        </div>
-      {/each}
-    </section>
-  {:else}
-    <section class="card text-center text-ink-faint">
-      Noch kein Timer läuft. Such dir oben eine Dauer aus — alles in deinem Tempo. 🌿
-    </section>
-  {/if}
+{/if}
 </div>
 
 {#if fullscreenTimer}

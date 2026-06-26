@@ -3,8 +3,8 @@
   import { settings } from "$lib/stores/settings";
 
   let text = $state("");
-  const openItems = $derived($shopping.filter((i) => !i.done));
-  const doneItems = $derived($shopping.filter((i) => i.done));
+  const openItems = $derived($shopping.filter((i) => !i.done && !i.archived));
+  const doneItems = $derived($shopping.filter((i) => i.done && !i.archived));
 
   async function add() {
     if (!text.trim()) return;

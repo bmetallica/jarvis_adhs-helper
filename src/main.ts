@@ -20,6 +20,10 @@ import { medications } from "$lib/stores/medications";
 import { outbox } from "$lib/stores/outbox";
 import { diary } from "$lib/stores/diary";
 import { polls } from "$lib/stores/polls";
+import { locations } from "$lib/stores/locations";
+import { safefoods } from "$lib/stores/safefoods";
+import { pharmacy } from "$lib/stores/pharmacy";
+import { runDoomBoxDaily } from "$lib/doombox";
 import { initSync } from "$lib/sync";
 import { loadAppConfig, setUnauthorizedHandler } from "$lib/jarvis/client";
 import { syncRoster } from "$lib/stores/accounts";
@@ -41,6 +45,9 @@ function registerSyncCollections() {
   registerSynced({ name: "meals", scope: "shared", store: meals });
   registerSynced({ name: "responsibilities", scope: "shared", store: responsibilities });
   registerSynced({ name: "polls", scope: "shared", store: polls });
+  registerSynced({ name: "locations", scope: "shared", store: locations });
+  registerSynced({ name: "safefoods", scope: "shared", store: safefoods });
+  registerSynced({ name: "pharmacy", scope: "shared", store: pharmacy });
 }
 
 async function init() {
@@ -74,6 +81,9 @@ async function init() {
     outbox.load(),
     diary.load(),
     polls.load(),
+    locations.load(),
+    safefoods.load(),
+    pharmacy.load(),
   ]);
 
   mount(App, { target: document.getElementById("app")! });
@@ -87,6 +97,9 @@ async function init() {
   // Per-Account-Datensynchronisation (Daten folgen dem Login).
   registerSyncCollections();
   initDataSync();
+
+  // Doom-Box: einmal täglich stilles Einschläfern alter, unangetasteter Dinge.
+  void runDoomBoxDaily();
 
   // Service Worker registrieren (Offline-Shell). Fehler bewusst still — App läuft auch ohne
   // (z. B. unsicherer Kontext bei IP + selbstsigniertem Zertifikat).

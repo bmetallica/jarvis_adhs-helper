@@ -101,7 +101,7 @@
     {/if}
   {:else if tab === "routines"}
     <div class="flex flex-col gap-3">
-      {#each $routines as r (r.id)}
+      {#each $routines.filter((r) => !r.archived) as r (r.id)}
         <div class="card flex items-center gap-3">
           <span class="text-3xl">{r.icon}</span>
           <div class="flex-1">

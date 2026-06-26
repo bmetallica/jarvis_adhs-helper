@@ -23,6 +23,7 @@ function createShopping() {
       done: false,
       addedBy,
       createdAt: Date.now(),
+      lastTouchedAt: Date.now(),
     };
     await (await db()).put("shopping", item);
     await load();
@@ -33,13 +34,20 @@ function createShopping() {
     const it = get({ subscribe }).find((x) => x.id === id);
     if (!it) return;
     const becomingDone = !it.done;
-    await (await db()).put("shopping", { ...it, done: becomingDone });
+    await (await db()).put("shopping", { ...it, done: becomingDone, lastTouchedAt: Date.now(), archived: false });
     await load();
     if (becomingDone) await pet.award(XP.shopping, it.addedBy);
   }
 
   async function remove(id: string) {
     await (await db()).delete("shopping", id);
+    await load();
+  }
+
+  async function setArchived(id: string, archived: boolean) {
+    const it = get({ subscribe }).find((x) => x.id === id);
+    if (!it) return;
+    await (await db()).put("shopping", { ...it, archived, lastTouchedAt: archived ? it.lastTouchedAt : Date.now() });
     await load();
   }
 
@@ -50,7 +58,7 @@ function createShopping() {
     await load();
   }
 
-  return { subscribe, load, add, toggle, remove, clearDone };
+  return { subscribe, load, add, toggle, remove, setArchived, clearDone };
 }
 
 export const shopping = createShopping();

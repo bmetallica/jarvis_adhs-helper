@@ -4,7 +4,7 @@
 import { get } from "svelte/store";
 import { timers } from "./stores/timers";
 import { db } from "./db";
-import { warnCue, doneCue } from "./feedback";
+import { warnCue, speak, startAlarm, stopAlarm } from "./feedback";
 import { pet } from "./stores/pet";
 import { XP } from "./pet";
 import type { TimerItem } from "./types";
@@ -17,13 +17,17 @@ export async function tickTimers(nowMs: number): Promise<void> {
     if (t.status !== "running") continue;
     const rem = (t.endsAt - nowMs) / 1000;
 
-    // Läuft wieder (Restart/Resume mit Restzeit) → „done"-Sperre aufheben.
-    if (rem > 0 && doneFired.has(t.id)) doneFired.delete(t.id);
+    // Läuft wieder (Restart/Resume mit Restzeit) → „done"-Sperre + Alarm aufheben.
+    if (rem > 0 && doneFired.has(t.id)) {
+      doneFired.delete(t.id);
+      stopAlarm(t.id);
+    }
 
     if (rem <= 0) {
       if (!doneFired.has(t.id)) {
         doneFired.add(t.id);
-        doneCue();
+        speak(`Die Zeit für ${t.label} ist um.`);
+        startAlarm(t.id); // läuft in Schleife bis manuell gestoppt
         await timers.markDone(t.id);
         // Durchgehaltener Timer zahlt aufs Familien-Tier ein.
         await pet.award(XP.timer, t.profileId, `Timer: ${t.label}`);

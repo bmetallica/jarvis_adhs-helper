@@ -14,6 +14,18 @@ Termin-Erkennung, Vision) sind **optionale Veredelung** über das JARVIS-Gateway
 
 ---
 
+## 📱 Screenshots
+
+| Jetzt (Dashboard) | Visueller Timer | Fokus & Hyperfokus |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/home.jpg) | ![Timer](docs/screenshots/timer.jpg) | ![Fokus](docs/screenshots/focus.jpg) |
+| **Familien-Tier** | **Tagebuch** | **Familienchat** |
+| ![Tier](docs/screenshots/pet.jpg) | ![Tagebuch](docs/screenshots/diary.jpg) | ![Board](docs/screenshots/family-board.jpg) |
+
+<sub>Mental-Load / Fair-Share: ![Lasten](docs/screenshots/mental-load.jpg)</sub>
+
+---
+
 ## ✨ Leitidee
 
 ADHS ist kein „Produktivitäts-Defizit", sondern eine andere Neurobiologie. Die App ist um diese
@@ -197,6 +209,7 @@ material/               # Ursprungs-Idee + JARVIS-Plugin-Spezifikation
 
 - [`KONZEPT.md`](KONZEPT.md) — vollständiges Anwendungskonzept (ADHS-Grundlagen, Module, UX)
 - [`ROADMAP.md`](ROADMAP.md) — Umsetzungsstand & Änderungslog
+- [`ROADMAP_V2.md`](ROADMAP_V2.md) — geplante Erweiterungsmodule (Medikations-Bürokratie, Übergabe-Modus, SOS-Overwhelm, Doom-Box, Safe-Food-Joker, Such-Gedächtnis)
 - [`AUDIT.md`](AUDIT.md) — Funktions-Audit (ADHS-Eignung, Lücken, Folgepunkte)
 - [`DEPLOY.md`](DEPLOY.md) — Betrieb, Reverse-Proxy, Internet-Exposition, TLS
 - [`material/pluginsystem.md`](material/pluginsystem.md) — JARVIS-Gateway-/Plugin-Spezifikation

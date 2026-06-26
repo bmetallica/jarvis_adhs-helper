@@ -2,6 +2,7 @@
   import type { TimerItem } from "$lib/types";
   import { now } from "$lib/stores/clock";
   import { timers } from "$lib/stores/timers";
+  import { stopAlarm, alarmsRunning } from "$lib/feedback";
   import TimerDisc from "./TimerDisc.svelte";
   import TimerBar from "./TimerBar.svelte";
   import TimerDots from "./TimerDots.svelte";
@@ -16,6 +17,15 @@
   const rem = $derived(timers.remaining(timer, $now));
   const done = $derived(timer.status === "done" || rem <= 0);
   const paused = $derived(timer.status === "paused");
+
+  // Alarm dieses Timers stoppen (jede Steuer-Aktion beendet den Endloston).
+  function silence() {
+    stopAlarm(timer.id);
+  }
+  function act(fn: () => void) {
+    silence();
+    fn();
+  }
 </script>
 
 <div class="flex flex-col items-center gap-4">
@@ -29,19 +39,24 @@
 
   {#if done}
     <p class="text-center text-lg font-semibold text-joy">Zeit ist um — alles gut. 🌿</p>
+    {#if $alarmsRunning > 0}
+      <button class="btn-primary w-full max-w-xs animate-pulse bg-gentle py-4 text-lg text-surface-0" onclick={silence}>
+        ⏹ Alarm stoppen
+      </button>
+    {/if}
   {/if}
 
   {#if !compact}
     <div class="flex flex-wrap items-center justify-center gap-2">
       {#if done}
-        <button class="btn-primary" onclick={() => timers.restart(timer.id)}>↻ Nochmal</button>
+        <button class="btn-primary" onclick={() => act(() => timers.restart(timer.id))}>↻ Nochmal</button>
       {:else if paused}
-        <button class="btn-primary" onclick={() => timers.resume(timer.id)}>▶ Weiter</button>
+        <button class="btn-primary" onclick={() => act(() => timers.resume(timer.id))}>▶ Weiter</button>
       {:else}
-        <button class="btn-soft" onclick={() => timers.pause(timer.id)}>⏸ Pause</button>
+        <button class="btn-soft" onclick={() => act(() => timers.pause(timer.id))}>⏸ Pause</button>
       {/if}
-      <button class="btn-soft" onclick={() => timers.addSeconds(timer.id, 60)}>+1 min</button>
-      <button class="btn-ghost" onclick={() => timers.remove(timer.id)}>✕ Entfernen</button>
+      <button class="btn-soft" onclick={() => act(() => timers.addSeconds(timer.id, 60))}>+1 min</button>
+      <button class="btn-ghost" onclick={() => act(() => timers.remove(timer.id))}>✕ Entfernen</button>
     </div>
 
     <!-- Stil-Umschalter (Novelty + persönliche Passung) -->

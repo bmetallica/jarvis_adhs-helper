@@ -70,6 +70,34 @@
   filter: saturate(0.7) brightness(0.92);
 }
 
+/* Druck: nur den Übergabe-Bogen zeigen, hell & lesbar (Oma/Babysitter). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .handover-print,
+  .handover-print * {
+    visibility: visible;
+  }
+  .handover-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #111 !important;
+    padding: 24px;
+    font-size: 14px;
+  }
+  .handover-print h1,
+  .handover-print h2,
+  .handover-print strong {
+    color: #000 !important;
+  }
+  .handover-no-print {
+    display: none !important;
+  }
+}
+
 /* Barrierefreiheit: größere Schrift. */
 .large-text {
   font-size: 118%;
