@@ -1,0 +1,26 @@
+{
+  "id": "adhs",
+  "name": "ADHS-Family-Helper",
+  "version": "0.1.0",
+  "type": "external",
+  "description": "Neurodiverses Familien-Assistenzsystem (PWA): visuelle Timer, Routinen, Termine mit Vorlaufzeit, kooperatives Familien-Tier, RAG-Tagebuch.",
+  "author": "bmetallica",
+  "scopes_requested": [
+    "api:llm",
+    "api:stt",
+    "api:tts",
+    "api:rag",
+    "api:storage",
+    "api:notify",
+    "api:events",
+    "api:scheduler",
+    "api:act_as_user",
+    "tool:set_timer",
+    "tool:add_todo"
+  ],
+  "events_published": ["gamification/xp", "timer/tick"],
+  "events_subscribed": ["jarvis/core/timer_elapsed", "jarvis/core/device_connected"],
+  "storage_collections": ["pet", "tasks", "profiles"],
+  "rag_collections": ["adhs_family_logs"],
+  "ui": { "entry": "https://adhs.local/", "icon": "🧩", "embed_in_admin": false }
+}

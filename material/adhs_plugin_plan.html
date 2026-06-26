@@ -1,0 +1,245 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>JARVIS ADHS-Helper Plugin-Plan</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 18mm 15mm;
+            background-color: #f4f6f8;
+            @bottom-right {
+                content: counter(page);
+                font-family: 'Helvetica Neue', Arial, sans-serif;
+                font-size: 9pt;
+                color: #718096;
+            }
+            @bottom-left {
+                content: "JARVIS Open-Source Ecosystem — ADHS Plugin-Plan";
+                font-family: 'Helvetica Neue', Arial, sans-serif;
+                font-size: 9pt;
+                color: #718096;
+            }
+        }
+        
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 10.5pt;
+            line-height: 1.35;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f8;
+        }
+
+        .header-container {
+            border-bottom: 2px solid #3182ce;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 20pt;
+            color: #2b6cb0;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 11pt;
+            color: #4a5568;
+            margin: 0;
+            font-style: italic;
+        }
+
+        h2 {
+            font-size: 13.5pt;
+            color: #2c5282;
+            margin: 22px 0 10px 0;
+            padding-left: 8px;
+            border-left: 4px solid #3182ce;
+        }
+        
+        h3 {
+            font-size: 11.5pt;
+            color: #2b6cb0;
+            margin: 14px 0 6px 0;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0 0 10px 0;
+            text-align: justify;
+        }
+
+        ul, ol {
+            margin: 0 0 12px 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 10pt;
+        }
+
+        th {
+            background-color: #2b6cb0;
+            color: white;
+            font-weight: bold;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid #2b6cb0;
+        }
+
+        td {
+            padding: 8px 10px;
+            border: 1px solid #cbd5e0;
+            background-color: #ffffff;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #f7fafc;
+        }
+
+        .highlight-box {
+            background-color: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 14px 0;
+        }
+
+        .highlight-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .badge {
+            display: inline-block;
+            background-color: #e2e8f0;
+            color: #4a5568;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8.5pt;
+            font-weight: bold;
+        }
+        
+        .badge-core { background-color: #e2e8f0; color: #4a5568; }
+        .badge-pwa { background-color: #feebc8; color: #c05621; }
+        .badge-gamification { background-color: #e6fffa; color: #234e52; }
+
+        h2, h3 {
+            page-break-after: avoid;
+        }
+        
+        tr {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>JARVIS Core Ecosystem: ADHS-Family-Plugin</h1>
+        <div class="subtitle">Architektur- und Implementierungsplan für ein neurodiverses, lokales Familien-Assistenzsystem</div>
+    </div>
+
+    <p>Dieses Dokument beschreibt die Konzeption und den Strukturplan für das <strong>ADHS-Family-Plugin</strong> innerhalb des lokalen KI-Ökosystems <code>JARVIS</code>. Das System ist speziell für neurodiverse Haushalte ausgelegt und berücksichtigt sowohl betroffene Kinder als auch betroffene Elternteile (Szenario: ein oder beide Partner mit ADHS). Die Oberfläche wird als progressive Web-App (PWA) realisiert, um maximale Barrierefreiheit ohne native App-Zwänge auf Smartphones bereitzustellen.</p>
+
+    <h2>1. Zielgruppen-Architektur: Multi-User Neurodiversität</h2>
+    <p>Das Plugin unterscheidet nicht starr zwischen „gesunden Verwaltern“ und „zu strukturierenden Kindern“. Da exekutive Dysfunktionen bei erwachsenen ADHS-Betroffenen denselben Mechanismen unterliegen, basiert das System auf einem gleichwertigen, aber rollenbasierten Multi-User-Ansatz:</p>
+    
+    <ul>
+        <li><strong>Rolle „Kind/Jugendlicher“:</strong> Fokus auf spielerische Führung, Gamification (Tamagotchi), visuelle Timer und schrittweise Mikro-Tasks zur Vermeidung von lähmender Reizüberflutung.</li>
+        <li><strong>Rolle „Erwachsener / Elternteil (ADHS)“:</strong> Fokus auf Entlastung des Mental Load, Reduzierung von administrativem Setup, Reizminimierung, Entlastung des Arbeitsgedächtnisses durch das lokale RAG-Gedächtnis und Vermeidung von „Schuldgefühlen“ bei nicht geschafften Tasks.</li>
+        <li><strong>Rolle „Erwachsener (Neurotypisch)“:</strong> Optionale Rolle zur reinen Einsicht des synchronisierten Familienstatus, ohne neurodiverse Assistenz-Features im eigenen Profil.</li>
+    </ul>
+
+    <h2>2. Das Gamification- & Tamagotchi-Konzept</h2>
+    <p>Um die typische „ADHS-Langeweile“ nach wenigen Tagen der Nutzung zu brechen, implementiert das System ein kooperatives Familiensystem, das direkt auf das Dopamin-Management einzahlt.</p>
+
+    <div class="highlight-box">
+        <h3>Das Prinzip des „Familien-Tandems“ (Kooperatives Tamagotchi)</h3>
+        <p>Anstatt dass jedes Familienmitglied egoistisch ein eigenes Haustier pflegt, existiert ein <strong>zentrales Familien-Tamagotchi (oder ein ausbaufähiges Familien-Hauptquartier)</strong>. Jedes Mitglied zahlt durch das Erledigen seiner individuellen, altersgerechten Routinen in den globalen Dopamin- und Ressourcenpool ein.</p>
+        <ul>
+            <li><strong>Der Dopamin-Effekt:</strong> Schafft das Kind seine Morgenroutine, erhält das Tamagotchi Energie. Vergisst der Vater seine Rechnungen nicht, schaltet er Zubehör frei.</li>
+            <li><strong>Schutz vor Frust:</strong> Das Haustier kann <em>niemals sterben</em> (dies würde ADHS-typische Scham- und Versagensängste triggern). Bei Inaktivität wird es lediglich „müde“ oder „geht auf Entdeckungsreise“ und bringt beim Wiederaufleben kleine Geschenke mit.</li>
+        </ul>
+    </div>
+
+    <h2>3. Technische Modulübersicht (JARVIS-Plugin)</h2>
+    <p>Das Plugin nutzt die Kernkompetenzen des lokalen JARVIS-Backends (LLM, Embeddings, lokale Speicherung) und stellt diese über eine REST- bzw. WebSocket-API für die mobile Weboberfläche bereit.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">Sub-Modul</th>
+                <th style="width: 25%;">Funktion im Backend</th>
+                <th style="width: 50%;">Smartphone-PWA Schnittstelle / UI</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>1. Micro-Task Parser</strong></td>
+                <td>Nutzung des lokalen LLMs zur Zerlegung komplexer Befehle in atomare Einzelschritte.</td>
+                <td><strong>„1-Klick-Routine“:</strong> Ein fetter Button bspw. für „Morgenroutine Lukas“ oder „Steuererklärung Papa“. Zeigt immer nur <em>einen</em> Teilschritt groß im Screen.</td>
+            </tr>
+            <tr>
+                <td><strong>2. Neuro-Timer</strong></td>
+                <td>Zustandsmaschine (State Machine) für adaptive Intervalle und intelligentes Nudging.</td>
+                <td><strong>Visuelle Schrumpfscheibe:</strong> Keine Zahlen, sondern ein farbiger Kreis, der abnimmt. Bei Ablauf erfolgt sanfte Vibration und Audio-Nachfrage.</td>
+            </tr>
+            <tr>
+                <td><strong>3. Kooperatives Tamagotchi</strong></td>
+                <td>Gamification-Engine. Berechnet XP, Levels, Statusänderungen und Belohnungs-Freischaltungen.</td>
+                <td><strong>Zentraler Dashboard-Tab:</strong> Animierte SVG/Canvas-Grafik des Familien-Haustiers. Interaktive Animationen bei Task-Erfüllung.</td>
+            </tr>
+            <tr>
+                <td><strong>4. Lokales RAG-Tagebuch</strong></td>
+                <td>Speichert formlose Logs (Text/Sprache) in lokaler Chroma/FAISS Vektordatenbank.</td>
+                <td><strong>Sprachnotiz-Button:</strong> Schnelles Einsprechen von Verhaltensmustern oder Medikations-Feedback („Rebound um 17 Uhr“).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>4. PWA Smartphone-Spezifikationen (Ohne App-Store-Zwang)</h2>
+    <p>Da das System als reine Webapplikation ohne native Installation laufen muss, werden moderne Web-APIs genutzt, um App-Feeling zu erzeugen:</p>
+    
+    <h3>A. Das Objekt-Permanenz-Problem lösen (Web-Plattform)</h3>
+    <ul>
+        <li><strong>Service Worker & Push API:</strong> JARVIS sendet Push-Nachrichten über lokale Web-Sockets oder Web-Push-Dienste direkt auf das Smartphone, selbst wenn der Browser geschlossen ist (unter iOS ab Version 16.4 nativ unterstützt).</li>
+        <li><strong>Homescreen-Installation (Manifest.json):</strong> Über den „Zum Startbildschirm hinzufügen“-Dialog wird die Webapp im Standalone-Modus geöffnet – ohne Adresszeile, exakt wie eine native Anwendung.</li>
+        <li><strong>Web Vibration API:</strong> Haptisches Feedback bei der Bestätigung von Aufgaben zur Erhöhung des physischen Belohnungsgefühls.</li>
+    </ul>
+
+    <h3>B. UI/UX Richtlinien für ADHS-Gehirne (Mobile First)</h3>
+    <ul>
+        <li><strong>Dark-Mode standardmäßig aktiviert:</strong> Reduziert die visuelle Erschöpfung. Muted-Colors statt greller Neonfarben, um Überstimulation zu vermeiden.</li>
+        <li><strong>Zero-Text-Entry-Philosophie:</strong> Eingaben für Routinen erfolgen über große Buttons, Icons oder Sprache. Textfelder werden im Alltag komplett vermieden.</li>
+        <li><strong>Unendlicher Vergebungsmodus:</strong> Verpasste Aufgaben erzeugen keine roten Fehlermeldungen oder Minus-Punkte. Sie verschwinden einfach stillschweigend oder verschieben sich elastisch auf den Folgetag.</li>
+    </ul>
+
+    <h2>5. Implementierungs-Roadmap für die JARVIS-Integration</h2>
+    
+    <h3>Phase 1: Backend API & Datenmodell (JARVIS Plugin Core)</h3>
+    <p>Erweiterung der JARVIS-Plugin-Struktur um die Endpunkte <code>/api/adhs/tasks</code>, <code>/api/adhs/gamification</code> und <code>/api/adhs/rag-log</code>. Speicherung der Benutzer-Profile und des Tamagotchi-Status in einer schlanken, lokalen SQLite-Instanz.</p>
+    
+    <h3>Phase 2: Der PWA-Prototyp (Frontend)</h3>
+    <p>Erstellung des Web-Frontends (z.B. mittels Vue.js oder Vanilla JS mit TailwindCSS), optimiert auf mobile Viewports (HTML5 Canvas für das Tamagotchi, CSS-Animationen für die Timer). Integration des <code>manifest.json</code> für die Standalone-Fähigkeit.</p>
+    
+    <h3>Phase 3: Der LLM-Promp-Engine Feinschliff</h3>
+    <p>Konfiguration der lokalen System-Prompts, um eine strukturierte und empathische Kommunikation zu garantieren. Einbindung des lokalen Vektorspeichers zur semantischen Analyse eingegangener Elterntagebücher.</p>
+
+</body>
+</html>

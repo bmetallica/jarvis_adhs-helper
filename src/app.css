@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface-0 text-ink antialiased;
+    margin: 0;
+    /* Sichere Bereiche (Notch) respektieren. */
+    padding: 0;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #app {
+    min-height: 100%;
+  }
+
+  /* Bewegungsreduktion respektieren (System + App-Schalter via .reduce-motion). */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  .reduce-motion * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@layer components {
+  /* Große, ADHS-gerechte Touch-Buttons. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-base
+      font-semibold transition-transform duration-150 ease-soft active:scale-95
+      select-none touch-manipulation;
+  }
+  .btn-primary {
+    @apply btn bg-calm text-surface-0 shadow-lg shadow-calm/20;
+  }
+  .btn-soft {
+    @apply btn bg-surface-2 text-ink hover:bg-surface-3;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-soft hover:text-ink;
+  }
+
+  .card {
+    @apply rounded-3xl bg-surface-1 p-5 shadow-lg shadow-black/20;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1 text-sm text-ink-soft;
+  }
+}
+
+/* Reizarm-Modus: globales Dimmen + Sättigung runter. */
+.calm-mode {
+  filter: saturate(0.7) brightness(0.92);
+}
+
+/* Barrierefreiheit: größere Schrift. */
+.large-text {
+  font-size: 118%;
+}
+
+/* Gut lesbare Schrift (dyslexie-freundlicher: hohe x-Höhe, klare Formen). */
+.readable-font,
+.readable-font body {
+  font-family: "Atkinson Hyperlegible", "Verdana", "Tahoma", system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  word-spacing: 0.05em;
+}

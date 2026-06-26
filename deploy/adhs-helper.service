@@ -1,0 +1,40 @@
+[Unit]
+Description=ADHS-Helper PWA (statischer Server für das JARVIS-Plugin-Frontend)
+Documentation=file:/opt/adhs-helper/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+# Bei wiederholtem Sofort-Crash (z. B. Port belegt) aufgeben statt endlos neu zu starten.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Dedizierter, rechtearmer Dienstnutzer (siehe DEPLOY.md / install.sh).
+User=adhs
+Group=adhs
+WorkingDirectory=/opt/adhs-helper
+# Konfiguration (HOST/PORT/DIST_DIR/TLS_CERT/TLS_KEY). Das '-' macht die Datei optional.
+EnvironmentFile=-/etc/adhs-helper.env
+ExecStart=/usr/bin/node /opt/adhs-helper/server/serve.js
+Restart=on-failure
+RestartSec=3
+# Sauberes Stoppen über SIGTERM (im Server behandelt).
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# --- Härtung (defensiv; bricht den reinen Statik-Server nicht) ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+# Falls Logs/State nötig: ReadWritePaths hier ergänzen. Der Statik-Server schreibt nichts.
+
+[Install]
+WantedBy=multi-user.target

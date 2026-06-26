@@ -1,0 +1,212 @@
+Ihr detaillierter Dokumenten- und Architekturplan für das JARVIS ADHS-Plugin ist fertiggestellt und einsatzbereit. Ich habe das Konzept direkt als druckfertiges PDF sowie als zugrundeliegendes HTML-Dokument generiert, das Sie als Basis für Ihr Web-Frontend nutzen können.
+
+Dein PDF-Dokument (Anwendungs- & Strukturplan) ist bereit:
+PDF-Symbol
+JARVIS_ADHS_Plugin_Plan
+ PDF 
+
+(Hinweis: Falls du die HTML-Struktur für deine Weboberfläche einsehen möchtest, findest du diese hier: 
+HTML-Symbol
+adhs_plugin_plan
+ HTML 
+
+)
+Wesentliche Eckpunkte des Plugin-Plans
+
+Indem wir das System für selbst betroffene Eltern (einen oder beide Partner) erweitern und es als reine Smartphone-PWA (Progressive Web App) konzipieren, heben wir uns drastisch von Standard-Apps ab. Hier ist die Zusammenfassung des erstellten Plans:
+1. Die „Familien-Tandem“-Gamification (Das kooperative Tamagotchi)
+
+    Kein Konkurrenzkampf: Es gibt ein zentrales Familien-Haustier (oder ein ausbaufähiges Familien-Hauptquartier) im JARVIS-System.
+
+    Gemeinsamer Dopamin-Pool: Sowohl die Kinder (z.B. für Zähneputzen) als auch die ADHS-Elternteile (z.B. für geschaffte Steuerbelege oder pünktliche Medikation) zahlen durch ihre individuellen Routinen in das gleiche Haustier ein.
+
+    Schutz vor Versagensängsten: Das Tamagotchi kann niemals sterben (das würde die ADHS-typische Rejection Sensitivity Dysphoria / Versagensscham triggern). Wenn die Familie eine Phase der Inaktivität hat, geht das Tier einfach „auf Entdeckungsreise“ und bringt bei der Rückkehr kleine Geschenke mit.
+
+2. Spezifische Features für betroffene Eltern
+
+    Der „Mental Load“-Dämpfer: Ein ADHS-Elternteil vergisst oft die eigenen Aufgaben, während es versucht, die des Kindes zu managen. JARVIS übernimmt das Arbeitsgedächtnis für beide.
+
+    Elastische Deadlines: Wenn Papa oder Mama eine Aufgabe verschieben, blinkt das System nicht stressig rot (was zu einer Blockade führt), sondern verschiebt sie stillschweigend und bietet einen „sanften Neustart“ an.
+
+    Lokales RAG-Tagebuch: Eltern können per PWA-Sprachnotiz formlos in JARVIS loggen („Lukas heute sehr unruhig, ich selbst habe ab 15 Uhr einen extremen Fokus-Crash gehabt“). Die lokale Vektordatenbank analysiert diese Muster privat im eigenen Netzwerk.
+
+3. Smartphone-PWA Spezifikationen (Kein App-Store-Zwang)
+
+Da das System komplett plattformunabhängig über den Browser laufen soll, nutzen wir moderne Web-APIs, um echtes „App-Feeling“ zu erzeugen:
+
+    Lösung für das Objekt-Permanenz-Problem: Nutzung von Web-Sockets und der Web Push API (wird auch von iOS ab v16.4 unterstützt). Wenn JARVIS im Hintergrund läuft, pusht er sanfte, repetitive Erinnerungen auf das Handydisplay, bis die Aufgabe visuell bestätigt wird.
+
+    Homescreen-Installation: Über ein manifest.json lässt sich das Web-Interface mit einem Klick als Standalone-App (ohne Browser-Adresszeile) auf dem Smartphone installieren.
+
+    Zero-Text-Entry UI: Große, haptisch reagierende Buttons (Web Vibration API) und reine Symbole statt Textwüsten. Das ADHS-Gehirn muss die App mit minimaler kognitiver Barriere bedienen können.
+
+Nächster Schritt für dein JARVIS-Ökosystem
+
+Der Plan im PDF enthält bereits eine dreiphasige Roadmap. Da dein JARVIS-Core vermutlich bereits über Schnittstellen für lokale LLMs verfügt, könntest du als erstes ein einfaches Datenmodell für den „Micro-Task Parser“ (der eine Aufgabe via LLM in atomare JSON-Schritte zerlegt) aufsetzen.
+
+Wie sieht deine aktuelle Frontend-Struktur aus? Nutzt du bereits ein Framework wie Vue/React für das JARVIS-Dashboard, in das wir die PWA-Ansichten integrieren können?
+
+ich würde das eigendlich gerne voneinander entkoppeln so das ich in jarvis schnittstellen bereit stelle auf welche die adhs-app zugreifen kann um die llmś oder auch die sprachsysteme (telegram, satteliten, stt, tts, rag (eben alles was jarvis bereits bietet) etc.) mit zu benutzen. hierfür müsste ich erstmal eroieren welche schnittstellen diese app zu jarvis braucht. sieh dir hierfür bitte die jarvis anwendung ganz genau an und baue mir dann ein schnitstellenkonzept für ein pluginsystem welches alles nutzen kann: https://github.com/bmetallica/JARVIS
+
+Das Umdenken hin zu einer entkoppelten, API-First-Architektur ist der architektonisch sauberste und nachhaltigste Weg. Indem du dein System JARVIS als zentralen Infrastruktur-Provider (das „Betriebssystem“ deines Hauses) nutzt und die ADHS-App als unabhängigen Client (PWA) aufbaust, bleibt dein Core schlank. Zudem profitierst du davon, dass alle rechenintensiven und kanalübergreifenden Dienste (LLM-Hosting, RAG, Telegram-Bots, Satelliten-Audio) zentral verwaltet werden.
+
+Damit die ADHS-Webapp nahtlos auf die mächtigen Subsysteme von JARVIS zugreifen kann, ohne fest verdrahtet zu sein, benötigt dein Ökosystem ein Schnittstellenkonzept (API-Gateway).
+
+Hier ist der detaillierte Schnittstellen- und Integrationsplan, aufgeteilt nach den Subsystemen, die JARVIS bereitstellt:
+🏗️ Globales Architekturmuster: API-Gateway & Event-Broker
+
+Die Kommunikation zwischen der ADHS-PWA (Client) und JARVIS (Infrastruktur) erfolgt über zwei Kanäle:
+
+    REST API: Für synchrone Anfragen (z. B. Text strukturieren, RAG abfragen).
+
+    WebSockets / MQTT Event-Bus: Für asynchrone Echtzeit-Interaktionen (z. B. Timer-Updates, Satelliten-Sprachausgabe, plattformübergreifende Gamification-Ticks).
+
+🛠️ Das Schnittstellenkonzept (Endpunkt-Spezifikation)
+1. LLM Inference Hub (Text & Strukturierung)
+
+Die ADHS-App benötigt vom LLM im Kern zwei Dinge: Empathischen Chat-Support und strukturierte Datenextraktion (JSON).
+
+    POST /api/v1/inference/chat
+
+        Zweck: Generischer Chat für den Eltern-Coach oder die Tamagotchi-Interaktion.
+
+        Payload:
+        JSON
+
+        {
+          "model": "local-default", 
+          "system_prompt": "Du bist ein deeskalierender ADHS-Coach...",
+          "messages": [{"role": "user", "content": "Kind verweigert Socken."}],
+          "stream": true
+        }
+
+    *   **Response:** SSE (Server-Sent Events) Text-Stream für verzögerungsfreie Darstellung auf dem Smartphone.
+
+*   **`POST /api/v1/inference/structure`**
+    *   **Zweck:** Konvertiert freien Text/Sprache in exakte JSON-Arrays für Mikro-Routinen.
+    *   **Payload:**
+        ```json
+        {
+          "text": "Morgenroutine für Lukas, um 7:45 muss er am Bus sein.",
+          "schema": {
+            "tasks": ["string"],
+            "durations_minutes": ["number"]
+          }
+        }
+
+*   **Response:**
+    ```json
+    {
+      "target_time": "07:45",
+      "steps": [
+        {"order": 1, "task": "Anziehen (Hose & Shirt)", "duration": 5},
+        {"order": 2, "task": "Frühstücken", "duration": 15}
+      ]
+    }
+
+
+### 2. Audio-Pipeline (STT / TTS)
+Wenn das Smartphone oder ein Raum-Satellit Sprache aufnimmt oder ausgibt, stellt JARVIS die Pipelines (z.B. Whisper / Piper / Wyoming) zur Verfügung.
+
+*   **`POST /api/v1/audio/stt`**
+    *   **Zweck:** Wandelt aufgezeichnetes Audio (z.B. flüchtige Gedanken der Eltern) in Text um.
+    *   **Input:** `multipart/form-data` (WAV/MP3-Chunk vom Smartphone-Mikrofon).
+    *   **Response:** `{"text": "Heute extrem früher Fokusverlust um 14 Uhr."}`
+
+*   **`POST /api/v1/audio/tts`**
+    *   **Zweck:** Erzeugt die Audioausgabe für Sprach-Erinnerungen.
+    *   **Payload:** `{"text": "Lukas, Zeit für Schritt zwei: Zähneputzen!", "voice": "jarvis-calm"}`
+    *   **Response:** `audio/wav` Binärstream (wird direkt in der PWA oder auf einem lokalen Audio-Satelliten abgespielt).
+
+### 3. RAG- & Kontext-Schnittstelle (Memory)
+Anstatt dass die ADHS-App eine eigene Vektordatenbank verwaltet, nutzt sie die bestehende RAG-Infrastruktur von JARVIS (Chroma/FAISS-Anbindung).
+
+*   **`POST /api/v1/rag/insert`**
+    *   **Zweck:** Speichert formlose Logbucheinträge im Langzeitgedächtnis.
+    *   **Payload:**
+        ```json
+        {
+          "collection": "adhs_family_logs",
+          "content": "Medikation um 07:30 Uhr genommen. Rebound-Effekt setzte gegen 16:15 Uhr heftig ein.",
+          "metadata": {"user": "Vater", "tags": ["Medikation", "Rebound"]}
+        }
+
+    POST /api/v1/rag/query
+
+        Zweck: Semantische Suche über vergangene Tage zur Erkennung von Triggern.
+
+        Payload: {"collection": "adhs_family_logs", "query": "Wie liefen die Nachmittage mit früher Medikation?", "limit": 5}
+
+        Response: Array der relevantesten Log-Schnipsel inklusive Relevanz-Score, die die ADHS-App dann ans LLM zur Auswertung schicken kann.
+
+4. Notification & Channel-Bridge (Telegram & Satelliten)
+
+JARVIS steuert die Kommunikationskanäle nach außen. Die ADHS-App stößt diese lediglich an.
+
+    POST /api/v1/channels/notify
+
+        Zweck: Sendet Erinnerungen/Alarme dorthin, wo der User gerade aktiv ist.
+
+        Payload:
+        JSON
+
+        {
+          "channels": ["telegram", "mqtt_satellite_livingroom"],
+          "priority": "high",
+          "payload": {
+            "text": "⚠️ Erinnerung: Herd kontrollieren / Medikation einnehmen!",
+            "tts_override": true
+          }
+        }
+
+
+### 5. Echtzeit Event-Bus (WebSockets / MQTT)
+Für das **Tamagotchi-System** und die **visuellen Schrumpftimer** reicht HTTP-REST nicht aus. Hier klinkt sich die ADHS-PWA in den Event-Stream von JARVIS ein.
+
+*   **Topic / Event: `jarvis/plugin/adhs/gamification/xp`**
+    *   **Richtung:** JARVIS -> PWA
+    *   **Inhalt:** Sobald ein Task über ein anderes Gerät (z.B. einen smarten Schalter am Bett via MQTT) gelöst wird, feuert JARVIS das Event. Die PWA empfängt es live und triggert die Tamagotchi-Animation auf dem Handydisplay.
+*   **Topic / Event: `jarvis/plugin/adhs/timer/tick`**
+    *   **Richtung:** Bi-direktional
+    *   **Inhalt:** Synchronisiert den ablaufenden visuellen Kreis auf allen Geräten im Haus parallel (Smartphone, Wanddisplay, Desktop).
+
+---
+
+## 🔄 Beispielloser Workflow: So interagieren die Systeme
+
+**Szenario:** Der Vater (selbst ADHS-Betroffener) spricht unterwegs eine Sprachnotiz in die ADHS-PWA auf seinem Smartphone: *„Jarvis, ich kriege gerade gar nichts auf die Reihe. Mach mir für heute Nachmittag einen Fokus-Plan für die Steuererklärung.“*
+
+[ ADHS Mobile PWA ]
+│
+│ 1. POST /api/v1/audio/stt (Sende Audio-Datei)
+▼
+[ JARVIS Core ] ──► (Whisper STT Modul)
+│
+│ 2. Text-Rückgabe: "Mach mir einen Fokus-Plan..."
+▼
+[ JARVIS Core ] ──► (Lokales RAG / Sende Query "Steuererklärung Tipps")
+│
+│ 3. Holt Kontext: Letzte Logs zeigen: "Steuer klappt am besten in 15-Min-Blöcken"
+▼
+[ JARVIS Core ] ──► (Inference Hub: Prompt an LLM inkl. RAG-Kontext)
+│
+│ 4. Generiert strukturierten Ablaufplan (JSON)
+▼
+[ ADHS Mobile PWA ]
+│
+│ 5. Empfängt JSON, startet die PWA-Morgenroutine,
+│    aktiviert den visuellen Timer & schaltet +50 XP
+│    für das Familien-Tamagotchi frei.
+▼
+[ MQTT-Event-Bus ] ──► Sendet "XP_GAIN" an alle Monitore im Haus.
+
+
+---
+
+## 🎯 Vorteile dieses Entkopplungskonzepts
+
+1.  **Schlankes Frontend:** Deine ADHS-App beinhaltet im Grunde nur noch die UI/UX Logik, das Zustandsmanagement für das Tamagotchi und TailwindCSS/HTML5 Canvas Animationen. Sie läuft federleicht in jedem mobilen Browser.
+2.  **JARVIS als mächtiges API-Backend:** Dein Hauptprojekt wird dadurch zu einem universellen KI-Server aufgewertet. Du kannst später kinderleicht *andere* Apps (z.B. Smart-Home-Dashboards, Fitness-Tracker) nach genau demselben Schema an JARVIS anbinden.
+3.  **Wiederverwendbarkeit:** Wenn du bereits Sprachmodule oder Telegram-Anbindungen in JARVIS implementiert hast, musst du für die ADHS-App keine einzige Zeile Code für diese Protokolle neu schreiben. Du rufst einfach nur die standardisierte JARVIS-API auf.
+
+Um das in deinem GitHub-Repository vorzubereiten, müsstest du in JARVIS im Prinzip einen dedizierten API-Router (`/api/v1/...`) hochziehen, der eingehende Web-Requests validiert und intern an die jeweiligen Module (Ollama-Anbindung, Vektordatenbank, Kommunikations-Worker) weiterleitet.
