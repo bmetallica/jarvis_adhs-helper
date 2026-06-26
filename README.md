@@ -16,13 +16,20 @@ Termin-Erkennung, Vision) sind **optionale Veredelung** über das JARVIS-Gateway
 
 ## 📱 Screenshots
 
-| Jetzt (Dashboard) | Visueller Timer | Fokus & Hyperfokus |
-|:---:|:---:|:---:|
-| ![Home](docs/screenshots/home.jpg) | ![Timer](docs/screenshots/timer.jpg) | ![Fokus](docs/screenshots/focus.jpg) |
-| **Familien-Tier** | **Tagebuch** | **Familienchat** |
-| ![Tier](docs/screenshots/pet.jpg) | ![Tagebuch](docs/screenshots/diary.jpg) | ![Board](docs/screenshots/family-board.jpg) |
-
-<sub>Mental-Load / Fair-Share: ![Lasten](docs/screenshots/mental-load.jpg)</sub>
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.jpg" width="190" alt="Home"><br><sub>Jetzt (Dashboard)</sub></td>
+    <td align="center"><img src="docs/screenshots/timer.jpg" width="190" alt="Timer"><br><sub>Visueller Timer</sub></td>
+    <td align="center"><img src="docs/screenshots/focus.jpg" width="190" alt="Fokus"><br><sub>Fokus &amp; Hyperfokus</sub></td>
+    <td align="center"><img src="docs/screenshots/pet.jpg" width="190" alt="Tier"><br><sub>Familien-Tier</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/diary.jpg" width="190" alt="Tagebuch"><br><sub>Tagebuch</sub></td>
+    <td align="center"><img src="docs/screenshots/family-board.jpg" width="190" alt="Familienchat"><br><sub>Familienchat</sub></td>
+    <td align="center"><img src="docs/screenshots/mental-load.jpg" width="190" alt="Mental Load"><br><sub>Mental-Load / Fair-Share</sub></td>
+    <td></td>
+  </tr>
+</table>
 
 ---
 
