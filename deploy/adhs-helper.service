@@ -34,7 +34,10 @@ ProtectControlGroups=true
 RestrictAddressFamilies=AF_INET AF_INET6
 RestrictNamespaces=true
 LockPersonality=true
-# Falls Logs/State nötig: ReadWritePaths hier ergänzen. Der Statik-Server schreibt nichts.
+# Beschreibbarer Zustand für Web-Push (VAPID-Schlüssel/Abos) und ICS-Feed:
+# systemd legt /var/lib/adhs-helper mit passenden Rechten an; DATA_DIR zeigt dorthin
+# (in /etc/adhs-helper.env setzen: DATA_DIR=/var/lib/adhs-helper).
+StateDirectory=adhs-helper
 
 [Install]
 WantedBy=multi-user.target

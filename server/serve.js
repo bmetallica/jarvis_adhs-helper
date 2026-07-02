@@ -125,7 +125,8 @@ function savePushState() {
     pushSaveTimer = null;
     try {
       mkdirSync(DATA_DIR, { recursive: true });
-      writeFileSync(PUSH_FILE, JSON.stringify(pushState));
+      // 0600: enthält den privaten VAPID-Schlüssel und den ICS-Token.
+      writeFileSync(PUSH_FILE, JSON.stringify(pushState), { mode: 0o600 });
     } catch (err) {
       console.error("[adhs-helper] Push-Status nicht speicherbar:", err.message);
     }
