@@ -81,6 +81,9 @@ function createPet() {
     successCue();
     publisher?.(next, amount); // geräteübergreifend spiegeln (falls verbunden)
 
+    // Familien-Quests: jede XP zahlt auf gemeinsame Ziele ein (lazy import vermeidet Zyklen).
+    void import("./quests").then((m) => m.quests.addProgress(amount)).catch(() => {});
+
     // Stufenaufstieg feiern.
     const newStage = stageFor(next.xp);
     if (newStage.index > prevStage.index) {

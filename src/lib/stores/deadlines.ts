@@ -6,7 +6,7 @@ import { uid } from "../util";
 
 export type DeadlineDraft = Omit<Deadline, "id" | "createdAt" | "firedReminders" | "done">;
 
-export const DEADLINE_CATEGORIES = ["Rechnung", "Steuer", "Behörde", "Vertrag", "Gesundheit", "Sonstiges"];
+export const DEADLINE_CATEGORIES = ["Rechnung", "Steuer", "Behörde", "Vertrag", "Gesundheit", "Schule", "Sonstiges"];
 
 function createDeadlines() {
   const { subscribe, set } = writable<Deadline[]>([]);

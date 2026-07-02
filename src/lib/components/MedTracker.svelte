@@ -15,6 +15,7 @@
   let stock = $state<number | "">("");
   let dailyDose = $state<number | "">("");
   let isBtm = $state(false);
+  let peakH = $state<number | "">("");
 
   let phName = $state("");
   let phText = $state("");
@@ -33,8 +34,9 @@
       stockCount: stock === "" ? null : Math.round(Number(stock)),
       dailyDose: dailyDose === "" ? undefined : Math.round(Number(dailyDose)),
       isBtm,
+      peakDurationMin: peakH === "" ? null : Math.round(Number(peakH) * 60),
     });
-    name = ""; icon = "💊"; timesStr = "07:30"; reboundH = ""; stock = ""; dailyDose = ""; isBtm = false;
+    name = ""; icon = "💊"; timesStr = "07:30"; reboundH = ""; stock = ""; dailyDose = ""; isBtm = false; peakH = "";
     showAdd = false;
   }
 
@@ -114,6 +116,9 @@
           <input type="number" min="0" step="0.5" class="mt-1 w-full rounded-xl bg-surface-2 px-3 py-2 focus:outline-none" bind:value={reboundH} placeholder="8" />
         </label>
       </div>
+      <label class="text-sm text-ink-soft">Wirkdauer für Fokus-Fenster (h, optional — zeigt auf der Startseite „gute Fokus-Zeit" an)
+        <input type="number" min="0" step="0.5" class="mt-1 w-full rounded-xl bg-surface-2 px-3 py-2 focus:outline-none" bind:value={peakH} placeholder="z. B. 4" />
+      </label>
       <label class="flex items-center justify-between py-1 text-sm">
         <span>BTM-Rezept (30-Tage-Regel, früh kümmern)</span>
         <input type="checkbox" class="h-5 w-5 accent-calm" bind:checked={isBtm} />

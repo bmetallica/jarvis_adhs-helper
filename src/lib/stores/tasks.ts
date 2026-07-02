@@ -20,6 +20,7 @@ function createTasks() {
     icon?: string;
     today?: boolean;
     profileId?: string | null;
+    estimateMin?: number | null;
   }): Promise<Task> {
     const list = get({ subscribe });
     const maxOrder = list.reduce((m, t) => Math.max(m, t.order), 0);
@@ -33,10 +34,20 @@ function createTasks() {
       profileId: opts.profileId ?? null,
       createdAt: Date.now(),
       completedAt: null,
+      estimateMin: opts.estimateMin ?? null,
+      actualMin: null,
     };
     await (await db()).put("tasks", t);
     await load();
     return t;
+  }
+
+  /** Zeitschätzungs-Trainer: gefühlte Ist-Dauer nach dem Erledigen festhalten. */
+  async function setActual(id: string, actualMin: number) {
+    const t = get({ subscribe }).find((x) => x.id === id);
+    if (!t) return;
+    await (await db()).put("tasks", { ...t, actualMin });
+    await load();
   }
 
   async function toggle(id: string) {
@@ -84,7 +95,7 @@ function createTasks() {
     await load();
   }
 
-  return { subscribe, load, add, toggle, update, remove, reorder, clearDone };
+  return { subscribe, load, add, toggle, update, remove, reorder, clearDone, setActual };
 }
 
 export const tasks = createTasks();

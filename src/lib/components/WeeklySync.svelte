@@ -2,8 +2,13 @@
   // Wöchentlicher Paar-/Familien-Sync („Board Meeting"): geführte Agenda, zeitbegrenzt (damit es
   // nicht ausufert/eskaliert). Bekanntes ADHS-Paar-Werkzeug.
   import { onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { tasks } from "$lib/stores/tasks";
   import { settings } from "$lib/stores/settings";
+  import { checkins } from "$lib/stores/checkins";
+  import { appreciations } from "$lib/stores/family";
+  import { habits } from "$lib/stores/habits";
+  import { weeklyReview, aiAvailable } from "$lib/ai";
 
   const AGENDA = [
     { icon: "🎉", title: "Wins der Woche", hint: "Was lief gut? Jede Person nennt eine Sache." },
@@ -51,6 +56,42 @@
   onDestroy(() => interval && clearInterval(interval));
 
   const mm = $derived(`${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`);
+
+  // --- KI-Wochenrückblick: nüchterne lokale Wochendaten → stärkenorientierter Kurztext ---
+  let review = $state("");
+  let reviewBusy = $state(false);
+  let reviewFailed = $state(false);
+
+  function weekFacts(): string {
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    const doneTasks = get(tasks).filter((t) => t.completedAt && t.completedAt > weekAgo);
+    const cis = get(checkins).filter((c) => c.createdAt > weekAgo);
+    const avg = (k: "mood" | "energy" | "focus") =>
+      cis.length ? Math.round((cis.reduce((s, c) => s + c[k], 0) / cis.length) * 10) / 10 : null;
+    const lowDays = [...new Set(cis.filter((c) => c.mood <= 2).map((c) => new Date(c.createdAt).toLocaleDateString("de-DE", { weekday: "long" })))];
+    const apps = get(appreciations).filter((a) => a.createdAt > weekAgo).length;
+    const habitTicks = get(habits).reduce(
+      (s, h) => s + h.doneDates.filter((d) => new Date(d).getTime() > weekAgo).length,
+      0,
+    );
+    return [
+      `Erledigte Aufgaben diese Woche: ${doneTasks.length}`,
+      doneTasks.length ? `Beispiele: ${doneTasks.slice(0, 5).map((t) => t.title).join(", ")}` : "",
+      cis.length ? `Check-ins: ${cis.length} (Ø Stimmung ${avg("mood")}, Energie ${avg("energy")}, Fokus ${avg("focus")} von 5)` : "Keine Check-ins.",
+      lowDays.length ? `Tage mit niedriger Stimmung: ${lowDays.join(", ")}` : "",
+      `Ausgesprochene Wertschätzungen: ${apps}`,
+      `Gewohnheits-Haken: ${habitTicks}`,
+    ].filter(Boolean).join("\n");
+  }
+
+  async function makeReview() {
+    reviewBusy = true;
+    reviewFailed = false;
+    review = "";
+    const ok = await weeklyReview(weekFacts(), (s) => (review += (review ? " " : "") + s));
+    reviewBusy = false;
+    if (!ok && !review) reviewFailed = true;
+  }
 </script>
 
 {#if !active}
@@ -62,6 +103,21 @@
       Zeitbegrenzt, damit es leicht bleibt.
     </p>
     <button class="btn-primary mt-5" onclick={start}>Sync starten</button>
+
+    {#if aiAvailable()}
+      <div class="mt-5 border-t border-surface-2 pt-4 text-left">
+        <p class="mb-2 text-sm font-semibold">🤖 KI-Wochenrückblick <span class="font-normal text-ink-faint">(stärkenorientiert, als Gesprächseinstieg)</span></p>
+        {#if review}
+          <p class="rounded-2xl bg-surface-2 p-3 text-sm leading-relaxed">{review}</p>
+        {/if}
+        {#if reviewFailed}
+          <p class="mb-2 text-sm text-gentle">Gerade nicht erreichbar — der Sync geht auch wunderbar ohne.</p>
+        {/if}
+        <button class="btn-soft mt-2 w-full text-sm" onclick={makeReview} disabled={reviewBusy}>
+          {reviewBusy ? "denke nach …" : review ? "Neu erzeugen" : "Rückblick erzeugen"}
+        </button>
+      </div>
+    {/if}
   </div>
 {:else}
   <div class="flex flex-col gap-4">

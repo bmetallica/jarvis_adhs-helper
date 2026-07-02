@@ -5,7 +5,7 @@
  *  - Alles unter /api/ : NIE cachen (geht an JARVIS, lastsensibel, immer frisch).
  *  - Web-Push-Handler ist vorbereitet, aber erst mit gültigem Zertifikat aktiv (siehe KONZEPT 10.3).
  */
-const CACHE = "adhs-shell-v1";
+const CACHE = "adhs-shell-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

@@ -59,6 +59,10 @@ export interface Task {
   profileId: ID | null;
   createdAt: number;
   completedAt: number | null;
+  /** Zeitschätzungs-Trainer: geschätzte Dauer in Minuten (optional). */
+  estimateMin?: number | null;
+  /** Zeitschätzungs-Trainer: gefühlte/gemessene Ist-Dauer in Minuten (optional). */
+  actualMin?: number | null;
 }
 
 // --- Routinen (geordnete Listen atomarer Schritte) ---
@@ -69,6 +73,8 @@ export interface RoutineStep {
   icon: string;
   /** Optionale Dauer in Sekunden → eigener Mini-Timer pro Schritt. */
   durationSec: number | null;
+  /** Zeitschätzungs-Trainer: gemessene Ist-Dauern in Sekunden (letzte ~10). */
+  measuredSec?: number[];
 }
 
 export interface Routine {
@@ -139,6 +145,10 @@ export interface Appointment {
   firedReminders: number[];
   /** „Jetzt losgehen"-Erinnerung (zur Losgeh-Zeit) bereits ausgelöst? */
   leaveFired: boolean;
+  /** Losgeh-Rechner: Anzieh-/Packzeit in Minuten (vor der Wegzeit). */
+  prepMin?: number;
+  /** „Gleich losmachen"-Vorwarnung (10 min vor Losgeh-Zeit) bereits ausgelöst? */
+  leaveSoonFired?: boolean;
   recurrence: Recurrence;
   notes: string;
   profileId: ID | null;
@@ -250,6 +260,10 @@ export interface Medication {
   dailyDose?: number; // Tabletten pro Tag
   refillLeadDays?: number; // Vorlauf für Rezept (Default 21)
   isBtm?: boolean; // BTM (30-Tage-Regel, oft Lieferengpässe)
+  /** Fokus-Fenster: Minuten von Einnahme bis Wirkbeginn (Default 30). Reine Anzeige, kein Rat. */
+  peakOnsetMin?: number;
+  /** Fokus-Fenster: Wirkdauer in Minuten ab Wirkbeginn. Null/0 = Anzeige aus. */
+  peakDurationMin?: number | null;
   createdAt: number;
 }
 
@@ -359,6 +373,90 @@ export interface Message {
   createdAt: number;
 }
 
+// --- Impulskauf-Parkplatz (Aufschub mit Würdigung statt Verbot) ---
+
+export interface WishItem {
+  id: ID;
+  text: string;
+  /** Optionaler Preis als Text (z. B. "89 €"). */
+  priceText: string;
+  profileId: ID | null;
+  /** Reifezeit in Tagen; danach neutrale Nachfrage. */
+  matureDays: number;
+  /** Entscheidung nach der Reifezeit. */
+  decision: "keep" | "drop" | null;
+  decidedAt: number | null;
+  createdAt: number;
+}
+
+// --- Dopamin-Menü (vorbereitete schnelle Belohnungen/Pausen) ---
+
+export type DopamineCourse = "starter" | "main" | "side";
+
+export interface DopamineItem {
+  id: ID;
+  text: string;
+  /** starter = ~2 min, main = ~20 min, side = nebenbei. */
+  course: DopamineCourse;
+  /** Grobe Dauer in Minuten (für den Warte-Modus). */
+  minutes: number;
+  profileId: ID | null;
+  createdAt: number;
+}
+
+// --- Familien-Quests (gemeinsames Ziel statt Ermahnung) ---
+
+export interface Quest {
+  id: ID;
+  title: string;
+  icon: string;
+  /** Ziel in Familien-XP. */
+  goalXp: number;
+  progressXp: number;
+  /** Die gemeinsame Belohnung (z. B. "Pizza-Abend"). */
+  reward: string;
+  status: "open" | "done" | "redeemed";
+  createdAt: number;
+  updatedAt: number;
+}
+
+// --- Reparatur-Ritual (das „Danach" von Konflikten; RSD-schonend) ---
+
+export interface RepairCard {
+  id: ID;
+  fromId: ID | null;
+  fromName: string;
+  toId: ID | null;
+  toName: string;
+  /** Was war los bei mir. */
+  whatHappened: string;
+  /** Was tut mir leid. */
+  sorryFor: string;
+  /** Was wünsche ich mir. */
+  wishFor: string;
+  /** Profile, die die Karte angenommen haben. */
+  acknowledgedBy: ID[];
+  createdAt: number;
+}
+
+// --- Body-Doubling: geteilter Fokus-Status ---
+
+export interface FocusStatus {
+  /** = Profil-ID (ein Status pro Person). */
+  id: ID;
+  name: string;
+  avatar: string;
+  /** Woran gearbeitet wird. */
+  text: string;
+  /** Bis wann (ms seit Epoch); danach gilt der Status als beendet. */
+  until: number;
+  /** Anfeuerungen (👍) von anderen. */
+  cheers: number;
+  updatedAt: number;
+}
+
+export type AlarmSound = "triad" | "bell" | "soft";
+
 export interface Settings {
   /** Aktives Profil. */
   activeProfileId: ID | null;
@@ -376,6 +474,16 @@ export interface Settings {
   largeText: boolean;
   /** Gut lesbare, dyslexie-freundlichere Schrift. */
   readableFont: boolean;
+  /** Alarm-Lautstärke 0..1 (0.5 = bisheriger Pegel). Reizempfindlichkeit ist individuell. */
+  alarmVolume: number;
+  /** Klangprofil des Endlos-Alarms. */
+  alarmSound: AlarmSound;
+  /** Alarm nach N Minuten selbst beenden (0 = bis manuell gestoppt). */
+  alarmAutoStopMin: number;
+  /** Eltern-PIN (4-stellig) vor sensiblen Bereichen; leer = aus. */
+  parentPin: string;
+  /** Wind-down-Beginn ("HH:MM"); leer = Abend-Modul aus. */
+  windDownStart: string;
   /** JARVIS-Verbindung (Schritt 5) — hier nur Platzhalter, Detailfelder folgen. */
   jarvisBaseUrl: string;
   jarvisKey: string;
@@ -390,6 +498,11 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceNudges: false,
   largeText: false,
   readableFont: false,
+  alarmVolume: 0.5,
+  alarmSound: "triad",
+  alarmAutoStopMin: 0,
+  parentPin: "",
+  windDownStart: "",
   jarvisBaseUrl: "",
   jarvisKey: "",
 };

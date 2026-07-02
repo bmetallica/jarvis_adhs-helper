@@ -196,6 +196,59 @@ export async function visionAnalyze(
   }
 }
 
+// --- Hausaufgaben per Foto: Zettel/Hefteintrag → strukturierte Fristen ---
+
+const HOMEWORK_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          subject: { type: "string" }, // Fach
+          task: { type: "string" }, // Aufgabe
+          due_date: { type: "string" }, // ISO-Datum, wenn erkennbar
+        },
+      },
+    },
+  },
+};
+
+export interface ParsedHomework {
+  subject: string;
+  task: string;
+  /** Fälligkeit (ms) oder null, wenn nicht erkennbar. */
+  dueAt: number | null;
+}
+
+/** Foto vom Hausaufgabenheft/Zettel → Liste strukturierter Aufgaben (via Vision + Structure). */
+export async function parseHomeworkPhoto(dataUrl: string): Promise<ParsedHomework[] | null> {
+  if (!aiAvailable()) return null;
+  try {
+    const ocr = await jarvis.visionOcr(dataUrl);
+    const text = ("text" in ocr ? ocr.text : (ocr as { answer: string }).answer) ?? "";
+    if (!text.trim()) return [];
+    const r = await jarvis.structure<{ items?: { subject?: string; task?: string; due_date?: string }[] }>(
+      `Heute ist ${new Date().toISOString().slice(0, 10)}. Extrahiere Hausaufgaben (Fach, Aufgabe, Abgabedatum) aus diesem Heft-/Zetteltext: ${text}`,
+      HOMEWORK_SCHEMA,
+      { priority: "normal" },
+    );
+    return (r.items ?? [])
+      .filter((i) => i.task?.trim())
+      .map((i) => {
+        const ts = i.due_date ? Date.parse(i.due_date) : NaN;
+        return {
+          subject: i.subject?.trim() || "Schule",
+          task: i.task!.trim(),
+          dueAt: Number.isFinite(ts) ? new Date(ts).setHours(18, 0, 0, 0) : null,
+        };
+      });
+  } catch {
+    return null;
+  }
+}
+
 // --- RSD-bewusste Kommunikations-Reframes ---
 
 const REFRAME_PROMPT =
@@ -266,6 +319,29 @@ export async function diaryQuery(
     return r.results ?? [];
   } catch {
     return null;
+  }
+}
+
+// --- KI-Wochenrückblick (stärkenorientiert, RSD-schonend) ---
+
+const WEEKLY_PROMPT =
+  "Du bist ein warmherziger Familien-Coach mit ADHS-Wissen. Erstelle aus den folgenden nüchternen " +
+  "Wochendaten einer Familie einen kurzen, STÄRKENORIENTIERTEN Wochenrückblick auf Deutsch: " +
+  "1) zwei bis drei gemeinsame Erfolge würdigen, 2) höchstens EIN wiederkehrendes Stress-Muster " +
+  "sanft benennen (ohne Schuld, ohne Personen zu vergleichen), 3) ein kleiner, konkreter Vorschlag " +
+  "für nächste Woche. Maximal 120 Wörter, keine Aufzählungsfloskeln, direkt ansprechen mit 'ihr'.";
+
+export async function weeklyReview(facts: string, onSentence: (s: string) => void): Promise<boolean> {
+  if (!aiAvailable()) return false;
+  try {
+    const text = await jarvis.chatStream(
+      { system_prompt: WEEKLY_PROMPT, messages: [{ role: "user", content: facts }], think: false, max_tokens: 300 },
+      onSentence,
+      { priority: "low" }, // Rückblick ist nie eilig — schont den KI-Server
+    );
+    return Boolean(text);
+  } catch {
+    return false;
   }
 }
 

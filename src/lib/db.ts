@@ -97,10 +97,30 @@ export interface AdhsDB extends DBSchema {
     key: string;
     value: import("./types").PharmacyNote;
   };
+  wishes: {
+    key: string;
+    value: import("./types").WishItem;
+  };
+  dopamine: {
+    key: string;
+    value: import("./types").DopamineItem;
+  };
+  quests: {
+    key: string;
+    value: import("./types").Quest;
+  };
+  repairs: {
+    key: string;
+    value: import("./types").RepairCard;
+  };
+  focusstatus: {
+    key: string;
+    value: import("./types").FocusStatus;
+  };
 }
 
 const DB_NAME = "adhs-helper";
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 let _db: Promise<IDBPDatabase<AdhsDB>> | null = null;
 
@@ -153,6 +173,13 @@ export function db(): Promise<IDBPDatabase<AdhsDB>> {
           database.createObjectStore("locations", { keyPath: "id" });
           database.createObjectStore("safefoods", { keyPath: "id" });
           database.createObjectStore("pharmacy", { keyPath: "id" });
+        }
+        if (oldVersion < 12) {
+          database.createObjectStore("wishes", { keyPath: "id" });
+          database.createObjectStore("dopamine", { keyPath: "id" });
+          database.createObjectStore("quests", { keyPath: "id" });
+          database.createObjectStore("repairs", { keyPath: "id" });
+          database.createObjectStore("focusstatus", { keyPath: "id" });
         }
       },
     });

@@ -3,9 +3,15 @@
   // Reihenfolge per Hoch/Runter (einfacher & barrierefreier als Drag auf Touch).
   import { tasks } from "$lib/stores/tasks";
   import { settings } from "$lib/stores/settings";
+  import { recordSample } from "$lib/timetrainer";
   import type { Task } from "$lib/types";
 
   let newTitle = $state("");
+  let newEstimate = $state<number | null>(null);
+  const ESTIMATES = [5, 15, 30, 60];
+
+  // Zeitschätzungs-Trainer: nach dem Erledigen einer geschätzten Aufgabe kurz nachfragen.
+  let askActual = $state<Task | null>(null);
 
   const todays = $derived(
     [...$tasks].filter((t) => t.today).sort((a, b) => a.order - b.order),
@@ -15,12 +21,23 @@
 
   async function addTask() {
     if (!newTitle.trim()) return;
-    await tasks.add({ title: newTitle, today: true, profileId: $settings.activeProfileId });
+    await tasks.add({ title: newTitle, today: true, profileId: $settings.activeProfileId, estimateMin: newEstimate });
     newTitle = "";
+    newEstimate = null;
   }
 
   async function complete(t: Task) {
     await tasks.toggle(t.id); // Ton + XP übernimmt der Store (pet.award)
+    if (t.estimateMin && !t.done) askActual = t;
+  }
+
+  async function answerActual(min: number | null) {
+    const t = askActual;
+    askActual = null;
+    if (t && min != null && t.estimateMin) {
+      await tasks.setActual(t.id, min);
+      await recordSample(t.estimateMin, min);
+    }
   }
 
   async function move(t: Task, dir: -1 | 1) {
@@ -50,6 +67,7 @@
       <div class="flex items-center gap-3">
         <span class="text-3xl">{open[0].icon || "🎯"}</span>
         <p class="flex-1 text-xl font-bold">{open[0].title}</p>
+        {#if open[0].estimateMin}<span class="chip">~{open[0].estimateMin} min</span>{/if}
       </div>
       <button class="btn-primary mt-4 w-full py-5 text-lg" onclick={() => complete(open[0])}>
         Erledigt ✓
@@ -96,6 +114,30 @@
     />
     <button class="btn-primary" onclick={addTask}>+</button>
   </div>
+  {#if newTitle.trim()}
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-ink-faint">Wie lange (Schätzung)?</span>
+      {#each ESTIMATES as e (e)}
+        <button
+          class="chip {newEstimate === e ? 'bg-calm text-surface-0' : ''}"
+          onclick={() => (newEstimate = newEstimate === e ? null : e)}>{e} min</button
+        >
+      {/each}
+    </div>
+  {/if}
+
+  <!-- Zeitschätzungs-Trainer: kurze, neutrale Nachfrage (überspringbar) -->
+  {#if askActual}
+    <div class="card border border-calm/40">
+      <p class="mb-2 text-sm font-semibold">⏱️ Und wie lange war es wirklich? <span class="font-normal text-ink-faint">(geschätzt: {askActual.estimateMin} min)</span></p>
+      <div class="flex flex-wrap gap-2">
+        {#each [5, 15, 30, 60, 120] as m (m)}
+          <button class="chip" onclick={() => answerActual(m)}>{m} min</button>
+        {/each}
+        <button class="btn-ghost px-2 py-1 text-xs" onclick={() => answerActual(null)}>überspringen</button>
+      </div>
+    </div>
+  {/if}
 
   {#if doneCount > 0}
     <button class="btn-ghost text-sm" onclick={() => tasks.clearDone()}>

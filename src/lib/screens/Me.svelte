@@ -12,11 +12,17 @@
   import VisionTool from "$lib/components/VisionTool.svelte";
   import MedTracker from "$lib/components/MedTracker.svelte";
   import DoomBox from "$lib/components/DoomBox.svelte";
+  import WishPark from "$lib/components/WishPark.svelte";
+  import DataBackup from "$lib/components/DataBackup.svelte";
+  import PinGate from "$lib/components/PinGate.svelte";
   import Handover from "$lib/components/Handover.svelte";
   import AvatarPicker from "$lib/components/AvatarPicker.svelte";
 
+  import { playAlarmSample } from "$lib/feedback";
+  import { pushAvailable, getPushSubscription, subscribePush, unsubscribePush, sendTestPush } from "$lib/push";
+
   let showHandover = $state(false);
-  import type { Profile, ProfileRole } from "$lib/types";
+  import type { AlarmSound, Profile, ProfileRole } from "$lib/types";
 
   // Verbindungstest beim Öffnen, falls konfiguriert.
   $effect(() => {
@@ -54,6 +60,37 @@
     perm = await requestNotifyPermission();
   }
 
+  // Web-Push-Status dieses Geräts.
+  let pushOffered = $state(false);
+  let pushSubscribed = $state(false);
+  let pushBusy = $state(false);
+  let pushError = $state("");
+  $effect(() => {
+    void pushAvailable().then((ok) => (pushOffered = ok));
+    void getPushSubscription().then((s) => (pushSubscribed = s != null));
+  });
+  async function doSubscribe() {
+    pushBusy = true;
+    pushError = "";
+    const res = await subscribePush();
+    pushBusy = false;
+    if (res.ok) {
+      pushSubscribed = true;
+      pushToast("Push aktiviert 🔔", "Erinnerungen kommen jetzt auch bei geschlossener App.");
+    } else {
+      pushError = res.reason ?? "Aktivierung fehlgeschlagen.";
+    }
+  }
+  async function doUnsubscribe() {
+    await unsubscribePush();
+    pushSubscribed = false;
+    pushToast("Push deaktiviert");
+  }
+  async function doTestPush() {
+    const ok = await sendTestPush();
+    pushToast(ok ? "Test unterwegs 🔔" : "Test fehlgeschlagen", ok ? "Kommt gleich als Benachrichtigung an." : "");
+  }
+
   // Reset
   const activeRole = $derived($profiles.find((p) => p.id === $settings.activeProfileId)?.role ?? null);
   let confirmFull = $state("");
@@ -83,6 +120,19 @@
     child: "Kind",
     other: "Weitere/r",
   };
+
+  // Eltern-PIN verwalten
+  let pinDraft = $state("");
+  async function savePin() {
+    if (pinDraft.length < 4) return;
+    await settings.patch({ parentPin: pinDraft });
+    pinDraft = "";
+    pushToast("Eltern-PIN gespeichert", "Sensible Bereiche sind jetzt geschützt.");
+  }
+  async function removePin() {
+    await settings.patch({ parentPin: "" });
+    pushToast("Eltern-PIN entfernt");
+  }
 </script>
 
 <div class="flex flex-col gap-5">
@@ -244,6 +294,44 @@
           onchange={(e) => settings.patch({ sound: e.currentTarget.checked })}
         />
       </label>
+      <div class="py-3">
+        <div class="mb-2 flex items-center justify-between">
+          <span>Alarm-Lautstärke</span>
+          <button class="btn-ghost px-3 py-1 text-sm" onclick={() => playAlarmSample()}>🔊 Probe</button>
+        </div>
+        <input
+          type="range"
+          min="0.1"
+          max="1"
+          step="0.05"
+          class="w-full accent-calm"
+          value={$settings.alarmVolume}
+          onchange={(e) => settings.patch({ alarmVolume: Number(e.currentTarget.value) })}
+        />
+        <p class="mb-2 mt-3 text-sm">Alarm-Klang</p>
+        <div class="flex gap-2">
+          {#each [["triad", "Dreiklang"], ["bell", "Glocke"], ["soft", "Sanft"]] as [id, label] (id)}
+            <button
+              class="flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors
+                {($settings.alarmSound ?? 'triad') === id ? 'bg-calm text-surface-0' : 'bg-surface-2 text-ink-soft'}"
+              onclick={() => {
+                void settings.patch({ alarmSound: id as AlarmSound });
+                setTimeout(() => playAlarmSample(), 60);
+              }}>{label}</button
+            >
+          {/each}
+        </div>
+        <p class="mb-1 mt-3 text-sm">Alarm stoppt von selbst nach</p>
+        <div class="flex gap-2">
+          {#each [[0, "nie (manuell)"], [1, "1 min"], [3, "3 min"], [10, "10 min"]] as [min, label] (min)}
+            <button
+              class="flex-1 rounded-xl px-2 py-2 text-xs font-medium transition-colors
+                {($settings.alarmAutoStopMin ?? 0) === min ? 'bg-calm text-surface-0' : 'bg-surface-2 text-ink-soft'}"
+              onclick={() => settings.patch({ alarmAutoStopMin: Number(min) })}>{label}</button
+            >
+          {/each}
+        </div>
+      </div>
       <label class="flex items-center justify-between py-3">
         <span>Gesprochene Erinnerungen <span class="text-ink-faint">(offline)</span></span>
         <input
@@ -271,6 +359,20 @@
           onchange={(e) => settings.patch({ readableFont: e.currentTarget.checked })}
         />
       </label>
+      <div class="flex items-center justify-between py-3">
+        <span>🌙 Wind-down ab <span class="text-ink-faint">(dimmt abends, erinnert sanft)</span></span>
+        <div class="flex items-center gap-2">
+          <input
+            type="time"
+            class="rounded-xl bg-surface-2 px-3 py-1.5 focus:outline-none"
+            value={$settings.windDownStart}
+            onchange={(e) => settings.patch({ windDownStart: e.currentTarget.value })}
+          />
+          {#if $settings.windDownStart}
+            <button class="btn-ghost px-2 py-1 text-xs" onclick={() => settings.patch({ windDownStart: "" })}>aus</button>
+          {/if}
+        </div>
+      </div>
     </div>
   </section>
 
@@ -287,15 +389,37 @@
     {:else}
       <button class="btn-primary" onclick={askNotify}>Erinnerungen erlauben</button>
     {/if}
-    <p class="mt-3 text-xs text-ink-faint">
-      Hinweis: Für volle Hintergrund-Erinnerungen (Web-Push) ist später ein gültiges Zertifikat über
-      einen Reverse-Proxy nötig (siehe Verbindung/DEPLOY). Solange die App offen ist, funktionieren
-      Erinnerungen immer.
-    </p>
+
+    <!-- Web-Push: Zustellung auch bei GESCHLOSSENER App (über den eigenen App-Server). -->
+    <div class="mt-4 border-t border-surface-2 pt-3">
+      <p class="mb-1 font-semibold">Auch bei geschlossener App (Push)</p>
+      {#if pushSubscribed}
+        <p class="chip mb-2 text-calm">✓ aktiv auf diesem Gerät</p>
+        <div class="flex gap-2">
+          <button class="btn-soft flex-1 text-sm" onclick={doTestPush}>🔔 Test senden</button>
+          <button class="btn-ghost flex-1 text-sm" onclick={doUnsubscribe}>Push aus</button>
+        </div>
+      {:else if pushOffered}
+        <p class="mb-2 text-sm text-ink-faint">
+          Termine, Fristen und Medikation werden dann zugestellt, auch wenn die App zu ist.
+        </p>
+        <button class="btn-primary w-full" onclick={doSubscribe} disabled={pushBusy}>
+          Push auf diesem Gerät aktivieren
+        </button>
+        {#if pushError}<p class="mt-2 text-sm text-gentle">{pushError}</p>{/if}
+      {:else}
+        <p class="text-xs text-ink-faint">
+          Push braucht den App-Server (serve.js) und HTTPS. Solange die App offen ist,
+          funktionieren Erinnerungen immer.
+        </p>
+      {/if}
+    </div>
   </section>
 
-  <!-- Medikation -->
-  <MedTracker />
+  <!-- Medikation (PIN-geschützt, falls PIN gesetzt: Bestände/BTM sind Elternsache) -->
+  <PinGate label="Medikation">
+    <MedTracker />
+  </PinGate>
 
   <!-- Übergabe-Modus -->
   <section class="card">
@@ -306,6 +430,9 @@
     </p>
     <button class="btn-soft w-full" onclick={() => (showHandover = true)}>Anleitung erstellen</button>
   </section>
+
+  <!-- Impulskauf-Parkplatz -->
+  <WishPark />
 
   <!-- Doom Box (Archiv) -->
   <DoomBox />
@@ -322,10 +449,43 @@
     <button class="btn-soft w-full" onclick={() => route.go("kiosk")}>🖥️ Hauptquartier öffnen</button>
   </section>
 
-  <!-- JARVIS-Verbindung -->
-  <ConnectionSettings />
+  <!-- JARVIS-Verbindung (PIN-geschützt) -->
+  <PinGate label="Verbindung & Server">
+    <ConnectionSettings />
+  </PinGate>
 
-  <!-- Zurücksetzen -->
+  <!-- Datensicherung (PIN-geschützt: Import ersetzt Daten) -->
+  <PinGate label="Daten sichern">
+    <DataBackup />
+  </PinGate>
+
+  <!-- Eltern-PIN verwalten (Änderung erfordert die aktuelle PIN) -->
+  <PinGate label="Eltern-PIN">
+    <section class="card">
+      <h2 class="mb-1 text-lg font-bold">🔒 Eltern-PIN</h2>
+      <p class="mb-3 text-sm text-ink-faint">
+        Schützt Medikation, Server-Einstellungen, Datensicherung und Löschaktionen. Alltag
+        (Timer, Aufgaben, Routinen) bleibt für alle frei — Autonomie zählt.
+      </p>
+      <div class="flex gap-2">
+        <input
+          class="flex-1 rounded-2xl bg-surface-2 px-4 py-3 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-calm"
+          type="password"
+          inputmode="numeric"
+          maxlength="8"
+          placeholder={$settings.parentPin ? "Neue PIN" : "PIN festlegen (z. B. 4-stellig)"}
+          bind:value={pinDraft}
+        />
+        <button class="btn-primary" onclick={savePin} disabled={pinDraft.length < 4}>Speichern</button>
+      </div>
+      {#if $settings.parentPin}
+        <button class="btn-ghost mt-2 w-full text-sm" onclick={removePin}>PIN entfernen (Schutz aus)</button>
+      {/if}
+    </section>
+  </PinGate>
+
+  <!-- Zurücksetzen (PIN-geschützt) -->
+  <PinGate label="Zurücksetzen">
   <section class="card">
     <h2 class="mb-1 text-lg font-bold">Zurücksetzen</h2>
 
@@ -361,6 +521,7 @@
       </p>
     {/if}
   </section>
+  </PinGate>
 
   {#if $auth.required}
     <section class="card">

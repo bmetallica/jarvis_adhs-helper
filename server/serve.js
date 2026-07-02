@@ -30,9 +30,10 @@
 import http from "node:http";
 import https from "node:https";
 import crypto from "node:crypto";
-import { createReadStream, existsSync, statSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { b64url, makeToken as makeTokenWith, verifyToken as verifyTokenWith } from "./authtoken.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -61,32 +62,11 @@ const SESSION_SECRET = process.env.APP_SESSION_SECRET || crypto.randomBytes(32).
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000; // 30 Tage
 const COOKIE = "adhs_sess";
 
-function b64url(buf) {
-  return Buffer.from(buf).toString("base64url");
-}
 function makeToken() {
-  const exp = String(Date.now() + SESSION_TTL_MS);
-  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(exp).digest();
-  return `${b64url(exp)}.${b64url(sig)}`;
+  return makeTokenWith(SESSION_SECRET, SESSION_TTL_MS);
 }
 function verifyToken(tok) {
-  if (!tok || !tok.includes(".")) return false;
-  const [p, s] = tok.split(".");
-  let exp;
-  try {
-    exp = Buffer.from(p, "base64url").toString();
-  } catch {
-    return false;
-  }
-  const expect = crypto.createHmac("sha256", SESSION_SECRET).update(exp).digest();
-  let got;
-  try {
-    got = Buffer.from(s, "base64url");
-  } catch {
-    return false;
-  }
-  if (got.length !== expect.length || !crypto.timingSafeEqual(got, expect)) return false;
-  return Number(exp) > Date.now();
+  return verifyTokenWith(SESSION_SECRET, tok);
 }
 function parseCookies(header) {
   const out = {};
@@ -107,6 +87,317 @@ function passwordMatches(pw) {
   const a = crypto.createHash("sha256").update(String(pw)).digest();
   const b = crypto.createHash("sha256").update(APP_PASSWORD).digest();
   return crypto.timingSafeEqual(a, b);
+}
+
+// --- Web-Push (RFC 8291/8292, abhängigkeitsfrei mit node:crypto) ---
+// Architektur: Der CLIENT ist die Quelle der Erinnerungen (Termine/Fristen/Medikation) und lädt
+// seinen „Erinnerungs-Plan" hierher hoch; der SERVER ist nur der Wecker, der fällige Einträge
+// als Push zustellt — auch wenn die App geschlossen ist. VAPID-Schlüssel werden beim ersten
+// Start erzeugt und in DATA_DIR persistiert.
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));
+const PUSH_FILE = path.join(DATA_DIR, "push.json");
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
+
+let pushState = { vapid: null, subs: {} };
+
+function loadPushState() {
+  try {
+    pushState = JSON.parse(readFileSync(PUSH_FILE, "utf8"));
+  } catch {
+    pushState = { vapid: null, subs: {} };
+  }
+  if (!pushState.vapid) {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    // Roher, unkomprimierter öffentlicher Punkt (65 Bytes) = die letzten 65 Bytes des SPKI-DER.
+    const spki = publicKey.export({ type: "spki", format: "der" });
+    pushState.vapid = {
+      publicKey: b64url(spki.subarray(spki.length - 65)),
+      privatePem: privateKey.export({ type: "pkcs8", format: "pem" }),
+    };
+    savePushState();
+  }
+}
+
+let pushSaveTimer = null;
+function savePushState() {
+  if (pushSaveTimer) return;
+  pushSaveTimer = setTimeout(() => {
+    pushSaveTimer = null;
+    try {
+      mkdirSync(DATA_DIR, { recursive: true });
+      writeFileSync(PUSH_FILE, JSON.stringify(pushState));
+    } catch (err) {
+      console.error("[adhs-helper] Push-Status nicht speicherbar:", err.message);
+    }
+  }, 1500);
+}
+
+function hmac(key, data) {
+  return crypto.createHmac("sha256", key).update(data).digest();
+}
+
+// Payload-Verschlüsselung nach RFC 8291 (aes128gcm).
+function encryptPayload(sub, payloadBuf) {
+  const uaPublic = Buffer.from(sub.keys.p256dh, "base64url"); // 65 Bytes
+  const authSecret = Buffer.from(sub.keys.auth, "base64url"); // 16 Bytes
+  const ecdh = crypto.createECDH("prime256v1");
+  const asPublic = ecdh.generateKeys();
+  const ecdhSecret = ecdh.computeSecret(uaPublic);
+  const salt = crypto.randomBytes(16);
+
+  const prkKey = hmac(authSecret, ecdhSecret);
+  const keyInfo = Buffer.concat([Buffer.from("WebPush: info\0"), uaPublic, asPublic]);
+  const ikm = hmac(prkKey, Buffer.concat([keyInfo, Buffer.from([1])])).subarray(0, 32);
+  const prk = hmac(salt, ikm);
+  const cek = hmac(prk, Buffer.from("Content-Encoding: aes128gcm\0\x01", "latin1")).subarray(0, 16);
+  const nonce = hmac(prk, Buffer.from("Content-Encoding: nonce\0\x01", "latin1")).subarray(0, 12);
+
+  const cipher = crypto.createCipheriv("aes-128-gcm", cek, nonce);
+  const ct = Buffer.concat([
+    cipher.update(Buffer.concat([payloadBuf, Buffer.from([2])])), // 0x02 = letzter Record
+    cipher.final(),
+    cipher.getAuthTag(),
+  ]);
+  const rs = Buffer.alloc(4);
+  rs.writeUInt32BE(4096);
+  const header = Buffer.concat([salt, rs, Buffer.from([65]), asPublic]);
+  return Buffer.concat([header, ct]);
+}
+
+// VAPID-JWT (ES256, JOSE-Signatur r||s) für den Push-Dienst des Browsers.
+function vapidJwt(audience) {
+  const enc = (o) => b64url(JSON.stringify(o));
+  const unsigned = `${enc({ typ: "JWT", alg: "ES256" })}.${enc({
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+    sub: VAPID_SUBJECT,
+  })}`;
+  const sig = crypto.sign("sha256", Buffer.from(unsigned), {
+    key: pushState.vapid.privatePem,
+    dsaEncoding: "ieee-p1363",
+  });
+  return `${unsigned}.${b64url(sig)}`;
+}
+
+/** Einen Push an ein Abo senden. Entfernt tote Abos (404/410) selbst. */
+function sendPush(endpointKey, payloadObj) {
+  return new Promise((resolve) => {
+    const entry = pushState.subs[endpointKey];
+    if (!entry) return resolve(false);
+    let body;
+    try {
+      body = encryptPayload(entry.sub, Buffer.from(JSON.stringify(payloadObj)));
+    } catch {
+      return resolve(false);
+    }
+    const url = new URL(entry.sub.endpoint);
+    const lib = url.protocol === "https:" ? https : http;
+    const req = lib.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        method: "POST",
+        path: url.pathname + url.search,
+        headers: {
+          TTL: "3600",
+          Urgency: "high",
+          "Content-Type": "application/octet-stream",
+          "Content-Encoding": "aes128gcm",
+          "Content-Length": body.length,
+          Authorization: `vapid t=${vapidJwt(`${url.protocol}//${url.host}`)}, k=${pushState.vapid.publicKey}`,
+        },
+      },
+      (res) => {
+        res.resume();
+        if (res.statusCode === 404 || res.statusCode === 410) {
+          delete pushState.subs[endpointKey]; // Abo existiert nicht mehr
+          savePushState();
+        }
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      },
+    );
+    req.on("error", () => resolve(false));
+    req.end(body);
+  });
+}
+
+const endpointKeyOf = (endpoint) => crypto.createHash("sha256").update(String(endpoint)).digest("hex").slice(0, 24);
+
+// Wecker: fällige Plan-Einträge zustellen (alle 30 s). Verpasstes > 30 min alt wird still verworfen.
+function tickPushPlans() {
+  const now = Date.now();
+  let changed = false;
+  for (const [key, entry] of Object.entries(pushState.subs)) {
+    for (const item of entry.plan || []) {
+      if (item.fired) continue;
+      if (item.at > now) continue;
+      item.fired = true;
+      changed = true;
+      if (now - item.at <= 30 * 60000) {
+        void sendPush(key, { title: item.title, body: item.body || "", tag: item.id, url: "/" });
+      }
+    }
+  }
+  if (changed) savePushState();
+}
+
+function handlePushRoutes(pathname, req, res) {
+  if (!pathname.startsWith("/push/")) return false;
+  if (AUTH_REQUIRED && !isAuthed(req)) {
+    send(res, 401, { "Content-Type": "application/json" },
+      JSON.stringify({ error: { code: "unauthorized", message: "Anmeldung erforderlich.", status: 401 } }));
+    return true;
+  }
+  if (pathname === "/push/key" && req.method === "GET") {
+    send(res, 200, { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      JSON.stringify({ key: pushState.vapid.publicKey }));
+    return true;
+  }
+  if (req.method !== "POST") {
+    send(res, 405, { "Content-Type": "text/plain" }, "Method Not Allowed");
+    return true;
+  }
+  readBody(req, (raw) => {
+    let body = {};
+    try { body = JSON.parse(raw || "{}"); } catch { body = {}; }
+    const ok = () => send(res, 200, { "Content-Type": "application/json" }, JSON.stringify({ ok: true }));
+
+    if (pathname === "/push/subscribe" && body.sub?.endpoint && body.sub?.keys?.p256dh) {
+      const key = endpointKeyOf(body.sub.endpoint);
+      pushState.subs[key] = { sub: body.sub, plan: pushState.subs[key]?.plan || [], updatedAt: Date.now() };
+      savePushState();
+      return ok();
+    }
+    if (pathname === "/push/unsubscribe" && body.endpoint) {
+      delete pushState.subs[endpointKeyOf(body.endpoint)];
+      savePushState();
+      return ok();
+    }
+    if (pathname === "/push/plan" && body.endpoint && Array.isArray(body.items)) {
+      const key = endpointKeyOf(body.endpoint);
+      const entry = pushState.subs[key];
+      if (!entry) return send(res, 404, { "Content-Type": "application/json" },
+        JSON.stringify({ error: { code: "not_subscribed", message: "Kein Push-Abo für dieses Gerät." } }));
+      // fired-Markierungen für unveränderte Einträge übernehmen (kein Doppel-Push).
+      const oldFired = new Set((entry.plan || []).filter((i) => i.fired).map((i) => i.id));
+      entry.plan = body.items.slice(0, 300).map((i) => ({
+        id: String(i.id).slice(0, 120),
+        at: Number(i.at) || 0,
+        title: String(i.title).slice(0, 140),
+        body: String(i.body || "").slice(0, 240),
+        fired: oldFired.has(String(i.id)),
+      }));
+      entry.updatedAt = Date.now();
+      savePushState();
+      return ok();
+    }
+    if (pathname === "/push/test" && body.endpoint) {
+      void sendPush(endpointKeyOf(body.endpoint), {
+        title: "Test-Erinnerung 🔔",
+        body: "Push funktioniert — auch bei geschlossener App.",
+        tag: "test",
+      }).then((sent) =>
+        send(res, sent ? 200 : 502, { "Content-Type": "application/json" }, JSON.stringify({ ok: sent })));
+      return;
+    }
+    send(res, 400, { "Content-Type": "application/json" },
+      JSON.stringify({ error: { code: "bad_request", message: "Ungültige Push-Anfrage." } }));
+  });
+  return true;
+}
+
+// --- ICS-Kalender-Feed (read-only, Token-geschützt) ---
+// Die App lädt ihre Termine hierher hoch (wie den Push-Plan); native Kalender-Apps abonnieren
+// /calendar.ics?token=… — Termine landen so auf dem Sperrbildschirm der ganzen Familie.
+function ensureIcsState() {
+  if (!pushState.ics) {
+    pushState.ics = { token: crypto.randomBytes(16).toString("hex"), items: [] };
+    savePushState();
+  }
+  return pushState.ics;
+}
+
+function icsEscape(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function icsDate(ms) {
+  return new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function buildIcs(items) {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//adhs-helper//DE",
+    "CALSCALE:GREGORIAN",
+    "X-WR-CALNAME:ADHS-Helper Familie",
+  ];
+  for (const it of items) {
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${icsEscape(it.id)}@adhs-helper`,
+      `DTSTAMP:${icsDate(Date.now())}`,
+      `DTSTART:${icsDate(it.startsAt)}`,
+      `DTEND:${icsDate(it.endsAt || it.startsAt + 3600_000)}`,
+      `SUMMARY:${icsEscape(`${it.icon ? it.icon + " " : ""}${it.title}`)}`,
+      "END:VEVENT",
+    );
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n") + "\r\n";
+}
+
+function handleIcsRoutes(pathname, url, req, res) {
+  // Öffentlicher (Token-geschützter) Feed — Kalender-Apps können keine Cookies senden.
+  if (pathname === "/calendar.ics") {
+    const ics = ensureIcsState();
+    const given = url.searchParams.get("token") || "";
+    const a = crypto.createHash("sha256").update(given).digest();
+    const b = crypto.createHash("sha256").update(ics.token).digest();
+    if (!crypto.timingSafeEqual(a, b)) {
+      send(res, 403, { "Content-Type": "text/plain" }, "Forbidden");
+      return true;
+    }
+    send(res, 200, { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "no-cache" }, buildIcs(ics.items || []));
+    return true;
+  }
+  if (!pathname.startsWith("/ics/")) return false;
+  if (AUTH_REQUIRED && !isAuthed(req)) {
+    send(res, 401, { "Content-Type": "application/json" },
+      JSON.stringify({ error: { code: "unauthorized", message: "Anmeldung erforderlich.", status: 401 } }));
+    return true;
+  }
+  if (pathname === "/ics/info" && req.method === "GET") {
+    const ics = ensureIcsState();
+    send(res, 200, { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      JSON.stringify({ path: `/calendar.ics?token=${ics.token}` }));
+    return true;
+  }
+  if (pathname === "/ics/data" && req.method === "POST") {
+    readBody(req, (raw) => {
+      let body = {};
+      try { body = JSON.parse(raw || "{}"); } catch { body = {}; }
+      if (!Array.isArray(body.items)) {
+        return send(res, 400, { "Content-Type": "application/json" },
+          JSON.stringify({ error: { code: "bad_request", message: "items fehlt." } }));
+      }
+      const ics = ensureIcsState();
+      ics.items = body.items.slice(0, 500).map((i) => ({
+        id: String(i.id).slice(0, 80),
+        title: String(i.title).slice(0, 140),
+        icon: String(i.icon || "").slice(0, 4),
+        startsAt: Number(i.startsAt) || 0,
+        endsAt: Number(i.endsAt) || 0,
+      }));
+      savePushState();
+      send(res, 200, { "Content-Type": "application/json" }, JSON.stringify({ ok: true }));
+    });
+    return true;
+  }
+  send(res, 404, { "Content-Type": "application/json" },
+    JSON.stringify({ error: { code: "not_found", message: "Unbekannter ICS-Endpunkt." } }));
+  return true;
 }
 
 // Einfaches Login-Rate-Limit gegen Brute Force (pro IP).
@@ -157,6 +448,34 @@ function contentType(file) {
   return MIME[path.extname(file).toLowerCase()] || "application/octet-stream";
 }
 
+// Sicherheits-Header (defensiv; nichts, was lokale Nutzung bricht).
+// connect-src erlaubt bewusst auch fremde Hosts: im Direkt-Modus (ohne Proxy) spricht der
+// Browser JARVIS im LAN direkt an. style-src 'unsafe-inline' wegen Inline-Styles (Farben).
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "connect-src 'self' https: wss: http: ws:",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+].join("; ");
+
+function securityHeaders(req) {
+  const h = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin",
+    "Content-Security-Policy": CSP,
+    "Permissions-Policy": "camera=(self), microphone=(self), geolocation=()",
+  };
+  // HSTS nur hinter TLS (direkt oder via Reverse-Proxy) — sonst sperrt man sich HTTP-Zugriff.
+  if (isHttps(req)) h["Strict-Transport-Security"] = "max-age=31536000";
+  return h;
+}
+
 function send(res, status, headers, body) {
   res.writeHead(status, headers);
   if (body) res.end(body);
@@ -177,9 +496,7 @@ function serveFile(req, res, file) {
     headers["Cache-Control"] = "public, max-age=3600";
   }
 
-  // Leichte Sicherheits-Header (defensiv; nichts, was lokale Nutzung bricht).
-  headers["X-Content-Type-Options"] = "nosniff";
-  headers["Referrer-Policy"] = "same-origin";
+  Object.assign(headers, securityHeaders(req));
 
   res.writeHead(200, headers);
   if (req.method === "HEAD") return res.end();
@@ -221,6 +538,18 @@ function handler(req, res) {
   try {
     const url = new URL(req.url, "http://localhost");
     let pathname = decodeURIComponent(url.pathname);
+
+    // Web-Push: Schlüssel, Abo, Erinnerungs-Plan, Test (Session-geschützt wie /api/*).
+    if (handlePushRoutes(pathname, req, res)) return;
+
+    // ICS-Kalender: Feed (Token) + Daten-Upload (Session).
+    if (handleIcsRoutes(pathname, url, req, res)) return;
+
+    // Health-Endpoint für Uptime-Monitoring (ungated, verrät nichts Sensibles).
+    if (pathname === "/healthz") {
+      return send(res, 200, { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        JSON.stringify({ ok: true, uptimeSec: Math.round(process.uptime()) }));
+    }
 
     // App-Konfiguration für den Client (z. B. ob der Proxy aktiv ist) — immer same-origin lesbar.
     if (pathname === "/app-config.json") {
@@ -299,6 +628,10 @@ function handler(req, res) {
 }
 
 function start() {
+  // Web-Push initialisieren (VAPID-Schlüssel laden/erzeugen) und Wecker starten.
+  loadPushState();
+  setInterval(tickPushPlans, 30_000);
+
   if (!existsSync(DIST) || !existsSync(path.join(DIST, "index.html"))) {
     console.error(
       `[adhs-helper] Build nicht gefunden unter ${DIST}.\n` +

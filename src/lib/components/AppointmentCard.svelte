@@ -11,7 +11,7 @@
   }
   let { appointment: a, onedit }: Props = $props();
 
-  const leave = $derived(leaveTime(a.startsAt, a.travelMin, a.bufferMin));
+  const leave = $derived(leaveTime(a.startsAt, a.travelMin + (a.prepMin ?? 0), a.bufferMin));
   const sleeps = $derived(sleepsUntil(a.startsAt, $now));
   const leaveSoon = $derived($now >= leave - 15 * 60000 && $now < a.startsAt);
   const companion = $derived($profiles.find((p) => p.id === a.companionId) ?? null);

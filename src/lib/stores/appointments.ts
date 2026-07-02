@@ -61,6 +61,7 @@ function createAppointments() {
         startsAt: nextOccurrence(a.startsAt, a.recurrence),
         firedReminders: [],
         leaveFired: false,
+        leaveSoonFired: false,
         prep: a.prep.map((p) => ({ ...p, done: false })),
       });
     }

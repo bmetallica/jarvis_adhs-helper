@@ -7,14 +7,18 @@ export interface Toast {
   id: string;
   title: string;
   body: string;
+  /** Optionale Aktion (z. B. „Neu laden" beim App-Update). */
+  action?: { label: string; run: () => void };
+  /** Bleibt stehen, bis der Nutzer reagiert (für Updates o. Ä.). */
+  sticky?: boolean;
 }
 
 export const toasts = writable<Toast[]>([]);
 
-export function pushToast(title: string, body = "") {
+export function pushToast(title: string, body = "", opts: Pick<Toast, "action" | "sticky"> = {}) {
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  toasts.update((t) => [...t, { id, title, body }]);
-  setTimeout(() => toasts.update((t) => t.filter((x) => x.id !== id)), 8000);
+  toasts.update((t) => [...t, { id, title, body, ...opts }]);
+  if (!opts.sticky) setTimeout(() => toasts.update((t) => t.filter((x) => x.id !== id)), 8000);
 }
 
 export function dismissToast(id: string) {

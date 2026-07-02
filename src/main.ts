@@ -23,6 +23,16 @@ import { polls } from "$lib/stores/polls";
 import { locations } from "$lib/stores/locations";
 import { safefoods } from "$lib/stores/safefoods";
 import { pharmacy } from "$lib/stores/pharmacy";
+import { wishes } from "$lib/stores/wishes";
+import { dopamine } from "$lib/stores/dopamine";
+import { quests } from "$lib/stores/quests";
+import { repairs } from "$lib/stores/repairs";
+import { focusstatus } from "$lib/stores/focusstatus";
+import { initAppBadge } from "$lib/attention";
+import { initPushPlanSync } from "$lib/push";
+import { initIcsSync } from "$lib/ics";
+import { openBrainDump, openSos } from "$lib/stores/ui";
+import { pushToast } from "$lib/notify";
 import { runDoomBoxDaily } from "$lib/doombox";
 import { initSync } from "$lib/sync";
 import { loadAppConfig, setUnauthorizedHandler } from "$lib/jarvis/client";
@@ -40,6 +50,8 @@ function registerSyncCollections() {
   registerSynced({ name: "checkins", scope: "user", store: checkins });
   registerSynced({ name: "medications", scope: "user", store: medications });
   registerSynced({ name: "diary", scope: "user", store: diary });
+  registerSynced({ name: "wishes", scope: "user", store: wishes });
+  registerSynced({ name: "dopamine", scope: "user", store: dopamine });
   // Familien-geteilt:
   registerSynced({ name: "shopping", scope: "shared", store: shopping });
   registerSynced({ name: "meals", scope: "shared", store: meals });
@@ -48,6 +60,9 @@ function registerSyncCollections() {
   registerSynced({ name: "locations", scope: "shared", store: locations });
   registerSynced({ name: "safefoods", scope: "shared", store: safefoods });
   registerSynced({ name: "pharmacy", scope: "shared", store: pharmacy });
+  registerSynced({ name: "quests", scope: "shared", store: quests });
+  registerSynced({ name: "repairs", scope: "shared", store: repairs });
+  registerSynced({ name: "focusstatus", scope: "shared", store: focusstatus });
 }
 
 async function init() {
@@ -84,9 +99,22 @@ async function init() {
     locations.load(),
     safefoods.load(),
     pharmacy.load(),
+    wishes.load(),
+    dopamine.load(),
+    quests.load(),
+    repairs.load(),
+    focusstatus.load(),
   ]);
 
   mount(App, { target: document.getElementById("app")! });
+
+  // App-Icon-Badge an „braucht Aufmerksamkeit" koppeln (Badging-API, best effort).
+  initAppBadge();
+
+  // PWA-Shortcuts (Homescreen-Schnellaktionen): ?open=sos|braindump öffnet das Overlay direkt.
+  const open = new URLSearchParams(location.search).get("open");
+  if (open === "sos") openSos();
+  else if (open === "braindump") openBrainDump();
 
   // Geräteübergreifende Sync starten (nur wenn JARVIS konfiguriert; sonst still).
   initSync();
@@ -101,11 +129,34 @@ async function init() {
   // Doom-Box: einmal täglich stilles Einschläfern alter, unangetasteter Dinge.
   void runDoomBoxDaily();
 
+  // Web-Push: Erinnerungs-Plan aktuell halten (nur wenn dieses Gerät abonniert hat).
+  initPushPlanSync();
+
+  // ICS-Feed: Termine für das Kalender-Abo aktuell halten (best effort).
+  initIcsSync();
+
   // Service Worker registrieren (Offline-Shell). Fehler bewusst still — App läuft auch ohne
   // (z. B. unsicherer Kontext bei IP + selbstsigniertem Zertifikat).
+  // Bei neuer Version: sanfter Hinweis mit „Neu laden" (PWAs hängen sonst auf altem Stand fest).
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          reg.addEventListener("updatefound", () => {
+            const w = reg.installing;
+            if (!w) return;
+            w.addEventListener("statechange", () => {
+              if (w.state === "installed" && navigator.serviceWorker.controller) {
+                pushToast("Neue Version verfügbar", "Einmal neu laden, dann bist du aktuell.", {
+                  sticky: true,
+                  action: { label: "Neu laden", run: () => location.reload() },
+                });
+              }
+            });
+          });
+        })
+        .catch(() => {});
     });
   }
 }

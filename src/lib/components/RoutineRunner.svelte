@@ -10,6 +10,7 @@
   import { XP } from "$lib/pet";
   import { doneCue } from "$lib/feedback";
   import { formatDuration } from "$lib/util";
+  import { acquireWakeLock } from "$lib/wakelock";
 
   interface Props {
     routine: Routine;
@@ -25,13 +26,32 @@
     void routines.touch(routine.id);
   });
 
+  // Display anlassen, solange die Routine läuft.
+  $effect(() => acquireWakeLock());
+
   const active = $derived($profiles.find((p) => p.id === $settings.activeProfileId) ?? null);
   const total = $derived(routine.steps.length);
   const step = $derived(routine.steps[index] ?? null);
   const finished = $derived(index >= total);
 
+  // Zeitschätzungs-Trainer: reale Schritt-Dauern still mitmessen (letzte 10 je Schritt).
+  let stepShownAt = Date.now();
+
+  function recordStepDuration() {
+    const s = routine.steps[index];
+    if (!s) return;
+    const elapsedSec = Math.round((Date.now() - stepShownAt) / 1000);
+    stepShownAt = Date.now();
+    if (elapsedSec < 5 || elapsedSec > 2 * 3600) return; // Ausreißer (weggelegt/pausiert) ignorieren
+    const steps = routine.steps.map((x) =>
+      x.id === s.id ? { ...x, measuredSec: [...(x.measuredSec ?? []), elapsedSec].slice(-10) } : x,
+    );
+    void routines.update({ ...routine, steps });
+  }
+
   function next() {
     justDone = true;
+    recordStepDuration();
     void pet.award(XP.routineStep, active?.id ?? null);
     setTimeout(() => {
       justDone = false;

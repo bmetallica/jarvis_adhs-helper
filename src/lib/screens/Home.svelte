@@ -5,65 +5,23 @@
   import { tasks } from "$lib/stores/tasks";
   import { appointments } from "$lib/stores/appointments";
   import { pet } from "$lib/stores/pet";
-  import { polls } from "$lib/stores/polls";
-  import { inbox } from "$lib/stores/inbox";
-  import { medications, todayAt, takenAround } from "$lib/stores/medications";
   import { now } from "$lib/stores/clock";
   import { route } from "$lib/router";
-  import { openBrainDump, openCoach, openCalm, openPropose, openSos, openWhere } from "$lib/stores/ui";
+  import { openBrainDump, openCoach, openCalm, openPropose, openSos, openWhere, openDopamine } from "$lib/stores/ui";
   import { relativeWhen, hhmm, leaveTime } from "$lib/date";
   import { stageFor } from "$lib/pet";
+  import { attention } from "$lib/attention";
   import TimerView from "$lib/components/TimerView.svelte";
   import PetCanvas from "$lib/components/PetCanvas.svelte";
+  import WaitingCard from "$lib/components/WaitingCard.svelte";
+  import RoutineRunner from "$lib/components/RoutineRunner.svelte";
+  import { routines } from "$lib/stores/routines";
+  import { windDownActive } from "$lib/winddown";
+  import type { Routine } from "$lib/types";
+  import FocusStatusCard from "$lib/components/FocusStatusCard.svelte";
+  import PeakWindowCard from "$lib/components/PeakWindowCard.svelte";
 
   const active = $derived($profiles.find((p) => p.id === $settings.activeProfileId) ?? null);
-  const meId = $derived($settings.activeProfileId);
-
-  // --- „Braucht deine Aufmerksamkeit" — aktionsbedürftige Dinge bündeln ---
-  interface Attn {
-    icon: string;
-    text: string;
-    go: () => void;
-  }
-  const attention = $derived(
-    (() => {
-      const items: Attn[] = [];
-      // Offene Abstimmungen / Termin-Anfragen, bei denen ich abstimmen soll und noch nicht habe.
-      for (const p of $polls) {
-        if (p.status !== "open") continue;
-        const targeted = p.voterIds.length === 0 || (meId != null && p.voterIds.includes(meId));
-        const voted = meId != null && (p.votes[meId]?.length ?? 0) > 0;
-        if (targeted && !voted) {
-          items.push({
-            icon: p.kind === "appointment" ? "📅" : "🗳️",
-            text: p.kind === "appointment" ? `Termin-Anfrage: ${p.appointment?.title ?? p.question}` : `Abstimmung: ${p.question}`,
-            go: () => route.go("family"),
-          });
-        }
-      }
-      // Tier hat ein Geschenk mitgebracht.
-      if ($pet.pendingGift) {
-        items.push({ icon: "🎁", text: `${$pet.name} hat ein Geschenk mitgebracht`, go: () => route.go("pet") });
-      }
-      // Fällige Medikation (heute, Zeit vorbei, noch nicht genommen).
-      for (const m of $medications) {
-        if (m.profileId !== meId && m.profileId !== null) continue;
-        for (const time of m.times) {
-          const ts = todayAt(time);
-          if ($now >= ts && $now < ts + 2 * 3600_000 && !takenAround(m, ts)) {
-            items.push({ icon: m.icon || "💊", text: `${m.name} fällig (${time} Uhr)`, go: () => route.go("me") });
-            break;
-          }
-        }
-      }
-      // Unverarbeiteter Posteingang (Brain-Dump).
-      const inboxOpen = $inbox.filter((i) => !i.processed).length;
-      if (inboxOpen > 0) {
-        items.push({ icon: "💭", text: `${inboxOpen} Gedanke(n) im Posteingang`, go: () => route.go("plan") });
-      }
-      return items;
-    })(),
-  );
   const runningTimers = $derived($timers.filter((t) => t.status === "running"));
   const openToday = $derived(
     [...$tasks].filter((t) => t.today && !t.done).sort((a, b) => a.order - b.order),
@@ -72,9 +30,19 @@
     [...$appointments].filter((a) => a.startsAt > $now - 30 * 60000).sort((a, b) => a.startsAt - b.startsAt)[0] ??
       null,
   );
-  const apptLeaveSoon = $derived(
-    nextAppt ? $now >= leaveTime(nextAppt.startsAt, nextAppt.travelMin, nextAppt.bufferMin) - 30 * 60000 && $now < nextAppt.startsAt : false,
+  const nextLeaveAt = $derived(
+    nextAppt ? leaveTime(nextAppt.startsAt, nextAppt.travelMin + (nextAppt.prepMin ?? 0), nextAppt.bufferMin) : 0,
   );
+  const apptLeaveSoon = $derived(nextAppt ? $now >= nextLeaveAt - 30 * 60000 && $now < nextAppt.startsAt : false);
+
+  // Abend-Modul: Wind-down aktiv → Ein-Tipp-Einstieg in die Abendroutine.
+  const windDown = $derived(
+    $settings.windDownStart ? windDownActive($now, $settings.windDownStart) && new Date($now).getHours() >= 12 : false,
+  );
+  const eveningRoutine = $derived(
+    $routines.find((r) => !r.archived && /abend|schlaf|nacht|bett/i.test(r.title)) ?? null,
+  );
+  let runningRoutine = $state<Routine | null>(null);
 
   function greeting(): string {
     const h = new Date().getHours();
@@ -101,16 +69,16 @@
   </button>
 
   <!-- Braucht deine Aufmerksamkeit -->
-  {#if attention.length}
+  {#if $attention.length}
     <section class="card border-2 border-joy/40">
       <p class="mb-2 flex items-center gap-2 font-bold">
         <span class="grid h-6 min-w-6 place-items-center rounded-full bg-joy px-1.5 text-sm text-surface-0">
-          {attention.length}
+          {$attention.length}
         </span>
         Braucht deine Aufmerksamkeit
       </p>
       <ul class="flex flex-col gap-1.5">
-        {#each attention as a (a.icon + a.text)}
+        {#each $attention as a (a.icon + a.text)}
           <li>
             <button class="flex w-full items-center gap-3 rounded-xl bg-surface-2 px-3 py-2 text-left active:scale-[0.99]" onclick={a.go}>
               <span class="text-lg">{a.icon}</span>
@@ -133,15 +101,41 @@
           <p class="text-sm text-ink-soft">
             {relativeWhen(nextAppt.startsAt, $now)} · {hhmm(nextAppt.startsAt)} Uhr
           </p>
-          {#if apptLeaveSoon && nextAppt.travelMin + nextAppt.bufferMin > 0}
-            <p class="mt-1 text-sm font-semibold text-gentle">
-              🚶 Bald losmachen — ~{hhmm(leaveTime(nextAppt.startsAt, nextAppt.travelMin, nextAppt.bufferMin))} Uhr
+          {#if nextAppt.travelMin + (nextAppt.prepMin ?? 0) + nextAppt.bufferMin > 0 && $now < nextLeaveAt}
+            <p class="mt-1 text-sm font-semibold {apptLeaveSoon ? 'text-gentle' : 'text-ink-soft'}">
+              🚪 Losmachen um {hhmm(nextLeaveAt)} Uhr
             </p>
+          {:else if apptLeaveSoon && $now >= nextLeaveAt}
+            <p class="mt-1 text-sm font-semibold text-gentle">🚶 Jetzt losmachen!</p>
           {/if}
         </div>
       </button>
     </section>
   {/if}
+
+  <!-- Abend-Modul: Wind-down → sanfter Einstieg in die Abendroutine -->
+  {#if windDown}
+    <section class="card border border-calm/40">
+      <p class="font-bold">🌙 Wind-down</p>
+      <p class="mt-1 text-sm text-ink-soft">Dein Morgen-Ich freut sich über Schlaf. Ein kleiner Schritt genügt.</p>
+      {#if eveningRoutine}
+        <button class="btn-primary mt-2 w-full" onclick={() => (runningRoutine = eveningRoutine)}>
+          {eveningRoutine.icon} {eveningRoutine.title} starten
+        </button>
+      {:else}
+        <button class="btn-soft mt-2 w-full" onclick={() => route.go("plan")}>Abendroutine anlegen →</button>
+      {/if}
+    </section>
+  {/if}
+
+  <!-- Warte-Modus: passt etwas Kleines in die Zeit bis zur Losgeh-Zeit? -->
+  <WaitingCard />
+
+  <!-- Medikations-Fokus-Fenster (nur Anzeige, kein medizinischer Rat) -->
+  <PeakWindowCard />
+
+  <!-- Body-Doubling: wer fokussiert gerade woran? -->
+  <FocusStatusCard />
 
   <!-- Laufende Timer (kompakt) -->
   {#if runningTimers.length}
@@ -221,7 +215,7 @@
     <button class="btn-soft py-4" onclick={openBrainDump}>💡 Gedanke festhalten</button>
     <button class="btn-soft py-4" onclick={openWhere}>🔎 Wo ist …?</button>
     <button class="btn-soft py-4" onclick={openCalm}>🌿 Ruhe-Ecke</button>
-    <button class="btn-soft py-4" onclick={openCoach}>💬 Coach</button>
+    <button class="btn-soft py-4" onclick={openDopamine}>🍭 Dopamin-Menü</button>
   </section>
 
   {#if !active}
@@ -231,3 +225,7 @@
     </section>
   {/if}
 </div>
+
+{#if runningRoutine}
+  <RoutineRunner routine={runningRoutine} onclose={() => (runningRoutine = null)} />
+{/if}

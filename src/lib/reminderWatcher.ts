@@ -8,6 +8,8 @@ import { db } from "./db";
 import { deliverReminder } from "./notify";
 import { warnCue } from "./feedback";
 import { hhmm, leaveTime, relativeWhen, ymd } from "./date";
+import { settings } from "./stores/settings";
+import { windDownActive } from "./winddown";
 import type { Appointment, Deadline, Medication } from "./types";
 
 // In-Memory-Dedupe pro Session (zusätzlich zur persistierten firedReminders-Liste).
@@ -23,16 +25,29 @@ async function checkAppointments(nowMs: number) {
   const list = get(appointments) as Appointment[];
   const d = await db();
   for (const a of list) {
-    // „Jetzt losgehen" — die zentrale Vorlauf-Erinnerung.
-    const leave = leaveTime(a.startsAt, a.travelMin, a.bufferMin);
+    // „Jetzt losgehen" — die zentrale Vorlauf-Erinnerung (inkl. Anzieh-/Packzeit).
+    const lead = a.travelMin + (a.prepMin ?? 0);
+    const leave = leaveTime(a.startsAt, lead, a.bufferMin);
     if (!a.leaveFired && nowMs >= leave && nowMs < a.startsAt && once(`ap-leave-${a.id}-${a.startsAt}`)) {
       warnCue();
-      const mins = a.travelMin + a.bufferMin;
+      const mins = lead + a.bufferMin;
       deliverReminder(
         `🚶 Jetzt losmachen: ${a.title}`,
         mins > 0 ? `Start ${hhmm(a.startsAt)} Uhr — plane ~${mins} min Vorlauf ein.` : `Start ${hhmm(a.startsAt)} Uhr.`,
       );
-      await d.put("appointments", { ...a, leaveFired: true });
+      await d.put("appointments", { ...a, leaveFired: true, leaveSoonFired: true });
+      await appointments.load();
+      continue;
+    }
+    // Übergangs-Vorwarnung 10 min vor der Losgeh-Zeit (Transitions brauchen Anlauf).
+    const soonAt = leave - 10 * 60000;
+    if (
+      !a.leaveSoonFired && !a.leaveFired && lead + a.bufferMin > 0 &&
+      nowMs >= soonAt && nowMs < leave && once(`ap-soon-${a.id}-${a.startsAt}`)
+    ) {
+      warnCue();
+      deliverReminder(`🚪 Gleich losmachen: ${a.title}`, `Losgeh-Zeit ~${hhmm(leave)} Uhr — jetzt in Ruhe fertig machen.`);
+      await d.put("appointments", { ...a, leaveSoonFired: true });
       await appointments.load();
       continue;
     }
@@ -96,8 +111,23 @@ function checkMedications(nowMs: number) {
   }
 }
 
+// Wind-down: einmal pro Abend ein sanfter Anstupser Richtung Abendroutine.
+function checkWindDown(nowMs: number) {
+  const s = get(settings);
+  if (!s.windDownStart) return;
+  if (!windDownActive(nowMs, s.windDownStart)) return;
+  // Nur am Abend selbst erinnern (nicht nachts nach Mitternacht).
+  const hour = new Date(nowMs).getHours();
+  if (hour < 12) return;
+  const key = `winddown-${ymd(nowMs)}`;
+  if (once(key)) {
+    deliverReminder("🌙 Wind-down", "Dein Morgen-Ich freut sich über Schlaf. Ein kleiner Schritt: Abendroutine starten.");
+  }
+}
+
 export async function tickReminders(nowMs: number): Promise<void> {
   await checkAppointments(nowMs);
   await checkDeadlines(nowMs);
   checkMedications(nowMs);
+  checkWindDown(nowMs);
 }

@@ -6,10 +6,15 @@
   import { tasks } from "$lib/stores/tasks";
   import { messages } from "$lib/stores/messages";
   import { settings } from "$lib/stores/settings";
+  import { appointments } from "$lib/stores/appointments";
+  import { now } from "$lib/stores/clock";
   import { wsConnected } from "$lib/jarvis/events";
   import { stageFor } from "$lib/pet";
   import { route } from "$lib/router";
-  import { relativeWhen } from "$lib/date";
+  import { hhmm, leaveTime, relativeWhen } from "$lib/date";
+  import { attention } from "$lib/attention";
+  import { windDownActive } from "$lib/winddown";
+  import { acquireWakeLock } from "$lib/wakelock";
   import PetCanvas from "$lib/components/PetCanvas.svelte";
   import TimerView from "$lib/components/TimerView.svelte";
   import WeekCalendar from "$lib/components/WeekCalendar.svelte";
@@ -18,6 +23,28 @@
   const openToday = $derived([...$tasks].filter((t) => t.today && !t.done).sort((a, b) => a.order - b.order));
   const recentMsgs = $derived($messages.slice(-6));
 
+  // Heutige Termine mit Losgeh-Zeit — die wichtigste Info an der Küchenwand.
+  const todayAppts = $derived(
+    [...$appointments]
+      .filter((a) => a.startsAt > $now - 30 * 60000 && new Date(a.startsAt).toDateString() === new Date($now).toDateString())
+      .sort((a, b) => a.startsAt - b.startsAt)
+      .slice(0, 4),
+  );
+  const leaveAt = (a: (typeof todayAppts)[number]) => leaveTime(a.startsAt, a.travelMin + (a.prepMin ?? 0), a.bufferMin);
+
+  // Rotierender Ticker: „braucht Aufmerksamkeit" wechselt alle 8 s durch.
+  let tick = $state(0);
+  $effect(() => {
+    const id = setInterval(() => (tick += 1), 8000);
+    return () => clearInterval(id);
+  });
+  const ticker = $derived($attention.length ? $attention[tick % $attention.length] : null);
+
+  // Nacht-Dimmen: ab Wind-down (oder 22:00 als Default) sanft abdunkeln.
+  const dimmed = $derived(
+    windDownActive($now, $settings.windDownStart || "22:00"),
+  );
+
   let chatText = $state("");
   async function sendChat() {
     if (!chatText.trim()) return;
@@ -25,23 +52,48 @@
     chatText = "";
   }
 
-  $effect(() => {
-    let lock: { release?: () => void } | null = null;
-    const wl = (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release?: () => void }> } }).wakeLock;
-    if (wl?.request) wl.request("screen").then((l) => (lock = l)).catch(() => {});
-    return () => lock?.release?.();
-  });
+  // Display dauerhaft wach halten (Wand-Tablet); re-acquire nach Tab-Wechsel inklusive.
+  $effect(() => acquireWakeLock());
 </script>
 
-<div class="fixed inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-surface-0 p-4">
+<div
+  class="fixed inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-surface-0 p-4 transition-[filter] duration-1000"
+  style={dimmed ? "filter: brightness(0.55)" : ""}
+>
   <!-- Kopf -->
   <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Familien-Hauptquartier</h1>
+    <h1 class="text-2xl font-bold">Familien-Hauptquartier <span class="ml-2 text-lg font-normal text-ink-faint">{hhmm($now)} Uhr{dimmed ? " · 🌙" : ""}</span></h1>
     <div class="flex items-center gap-3">
       <span class="chip">{$wsConnected ? "🟢 live" : "⚪ lokal"}</span>
       <button class="btn-soft" onclick={() => route.go("home")}>✕ Beenden</button>
     </div>
   </div>
+
+  <!-- Rotierender Aufmerksamkeits-Ticker -->
+  {#if ticker}
+    <div class="card flex items-center gap-3 border border-joy/40 py-2.5">
+      <span class="text-xl">{ticker.icon}</span>
+      <span class="flex-1 text-lg">{ticker.text}</span>
+      {#if $attention.length > 1}<span class="chip">{(tick % $attention.length) + 1}/{$attention.length}</span>{/if}
+    </div>
+  {/if}
+
+  <!-- Heutige Termine mit Losgeh-Zeit -->
+  {#if todayAppts.length}
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      {#each todayAppts as a (a.id)}
+        <div class="card py-2.5 {$now >= leaveAt(a) && $now < a.startsAt ? 'border-2 border-gentle' : ''}">
+          <p class="truncate font-bold">{a.icon} {a.title}</p>
+          <p class="text-sm text-ink-soft">
+            {hhmm(a.startsAt)} Uhr
+            {#if a.travelMin + (a.prepMin ?? 0) + a.bufferMin > 0}
+              · 🚪 {$now >= leaveAt(a) ? "jetzt losmachen!" : `losmachen ${hhmm(leaveAt(a))}`}
+            {/if}
+          </p>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Wochenkalender (groß) -->
   <section>

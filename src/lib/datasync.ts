@@ -27,6 +27,9 @@ interface SyncedStore {
 const registry: SyncedStore[] = [];
 const rev = new Map<string, number>(); // zuletzt angewandte Revision je Collection (in-memory)
 const pushTimer = new Map<string, ReturnType<typeof setTimeout>>();
+// Collections mit lokalen, noch nicht gepushten Änderungen: bei eingehendem Pull wird dann
+// auf Datensatz-Ebene GEMERGT statt blind ersetzt (kein stilles Verlieren eigener Änderungen).
+const dirty = new Set<string>();
 let applying = false; // true während eines Pulls → unterdrückt Rück-Push
 let started = false;
 
@@ -45,6 +48,7 @@ function shared(s: SyncedStore) {
 // --- Push: lokalen Snapshot hochladen (debounced) ---
 function schedulePush(s: SyncedStore) {
   if (!isConfigured() || applying) return;
+  dirty.add(s.name);
   const t = pushTimer.get(s.name);
   if (t) clearTimeout(t);
   pushTimer.set(
@@ -55,9 +59,10 @@ function schedulePush(s: SyncedStore) {
         const r = Date.now();
         rev.set(s.name, r);
         await jarvis.storagePut(SYNC_COLL, s.name, { items, rev: r }, shared(s), { priority: "low" });
+        dirty.delete(s.name);
         publish(topic(s.name), { rev: r });
       } catch {
-        /* offline — späterer Push/Pull gleicht ab */
+        /* offline — dirty bleibt gesetzt; späterer Push/Pull merged */
       }
     }, 900),
   );
@@ -86,11 +91,56 @@ async function pull(s: SyncedStore) {
       return;
     }
     if (remoteRev <= (rev.get(s.name) ?? -1)) return; // schon aktuell
-    await replaceLocal(s, items);
+    if (dirty.has(s.name)) {
+      // Lokale Änderungen noch nicht gepusht → auf Datensatz-Ebene mergen statt überschreiben.
+      await mergeLocal(s, items);
+    } else {
+      await replaceLocal(s, items);
+    }
     rev.set(s.name, remoteRev);
   } catch {
     /* offline */
   }
+}
+
+/**
+ * Datensatz-Merge bei parallelen Änderungen: Union per id; existiert ein Item beidseitig,
+ * gewinnt das mit dem jüngeren updatedAt (fehlt das Feld: lokale Fassung — eigene Eingaben
+ * gehen nie still verloren). Entfernungen der Gegenseite können dabei wieder auftauchen —
+ * der seltene, sichtbare Fall ist besser als stilles Verlieren. Danach direkt zurückpushen.
+ */
+async function mergeLocal(s: SyncedStore, remoteItems: unknown[]) {
+  type Row = { id?: unknown; updatedAt?: unknown } & Record<string, unknown>;
+  const d = await db();
+  const local = (await d.getAll(s.name)) as Row[];
+  const byId = new Map<string, Row>();
+  for (const r of remoteItems as Row[]) {
+    if (typeof r?.id === "string") byId.set(r.id, r);
+  }
+  let conflicts = 0;
+  for (const l of local) {
+    if (typeof l?.id !== "string") continue;
+    const r = byId.get(l.id);
+    if (!r) {
+      byId.set(l.id, l); // nur lokal vorhanden → behalten
+      continue;
+    }
+    const lu = typeof l.updatedAt === "number" ? l.updatedAt : null;
+    const ru = typeof r.updatedAt === "number" ? r.updatedAt : null;
+    if (lu != null && ru != null) {
+      if (lu >= ru) byId.set(l.id, l);
+    } else if (JSON.stringify(l) !== JSON.stringify(r)) {
+      byId.set(l.id, l); // kein Zeitstempel: lokal gewinnt, aber sichtbar machen
+      conflicts += 1;
+    }
+  }
+  await replaceLocal(s, [...byId.values()]);
+  if (conflicts > 0) {
+    void import("./notify").then((n) =>
+      n.pushToast("Parallel geändert", `„${s.name}" wurde zusammengeführt — bitte kurz prüfen.`),
+    );
+  }
+  schedulePush(s); // gemergter Stand wird der neue Snapshot
 }
 
 /** IndexedDB-Store leeren und mit den Items füllen, danach Svelte-Store neu laden. */

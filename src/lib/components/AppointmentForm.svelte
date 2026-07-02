@@ -4,7 +4,7 @@
   import { appointments, newChecklist, type AppointmentDraft } from "$lib/stores/appointments";
   import { profiles } from "$lib/stores/profiles";
   import { settings } from "$lib/stores/settings";
-  import { toLocalInput, fromLocalInput } from "$lib/date";
+  import { toLocalInput, fromLocalInput, leaveTime, hhmm } from "$lib/date";
 
   interface Props {
     appointment?: Appointment | null;
@@ -19,6 +19,7 @@
   let when = $state(toLocalInput(a0?.startsAt ?? defaultStart()));
   let travelMin = $state(a0?.travelMin ?? 15);
   let bufferMin = $state(a0?.bufferMin ?? 10);
+  let prepMin = $state(a0?.prepMin ?? 0);
   let companionId = $state<string | null>(a0?.companionId ?? null);
   let recurrence = $state<Recurrence>(a0?.recurrence ?? "none");
   let notes = $state(a0?.notes ?? "");
@@ -49,6 +50,7 @@
       startsAt: fromLocalInput(when),
       travelMin: Math.max(0, travelMin),
       bufferMin: Math.max(0, bufferMin),
+      prepMin: Math.max(0, prepMin),
       companionId,
       prep: a0
         ? mergePrep(a0)
@@ -98,12 +100,16 @@
         <input type="datetime-local" class="mt-1 w-full rounded-2xl bg-surface-2 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-calm" bind:value={when} />
       </label>
 
-      <!-- Der ADHS-Kern: Vorlauf -->
+      <!-- Der ADHS-Kern: Losgeh-Rechner (Rückwärtsplanung) -->
       <div class="rounded-2xl bg-surface-2 p-3">
-        <p class="mb-2 text-sm font-semibold">⏱️ Vorlauf (damit du rechtzeitig losmachst)</p>
+        <p class="mb-2 text-sm font-semibold">⏱️ Losgeh-Rechner (rückwärts vom Start)</p>
         <div class="flex gap-3">
           <label class="flex-1 text-sm text-ink-soft">
-            Fahrt/Fertigmachen (min)
+            Anziehen/Packen (min)
+            <input type="number" min="0" class="mt-1 w-full rounded-xl bg-surface-3 px-3 py-2 focus:outline-none" bind:value={prepMin} />
+          </label>
+          <label class="flex-1 text-sm text-ink-soft">
+            Weg (min)
             <input type="number" min="0" class="mt-1 w-full rounded-xl bg-surface-3 px-3 py-2 focus:outline-none" bind:value={travelMin} />
           </label>
           <label class="flex-1 text-sm text-ink-soft">
@@ -111,6 +117,11 @@
             <input type="number" min="0" class="mt-1 w-full rounded-xl bg-surface-3 px-3 py-2 focus:outline-none" bind:value={bufferMin} />
           </label>
         </div>
+        {#if fromLocalInput(when) > 0}
+          <p class="mt-2 text-sm font-semibold text-calm">
+            🚪 Losmachen um {hhmm(leaveTime(fromLocalInput(when), Math.max(0, travelMin) + Math.max(0, prepMin), Math.max(0, bufferMin)))} Uhr
+          </p>
+        {/if}
       </div>
 
       <!-- Begleitung (Mental-Load-Sichtbarkeit) -->

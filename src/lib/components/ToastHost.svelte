@@ -17,6 +17,15 @@
         <div class="flex-1">
           <p class="font-semibold">{t.title}</p>
           {#if t.body}<p class="mt-0.5 text-sm text-ink-soft">{t.body}</p>{/if}
+          {#if t.action}
+            <button
+              class="btn-primary mt-2 px-3 py-1.5 text-sm"
+              onclick={() => {
+                t.action?.run();
+                dismissToast(t.id);
+              }}>{t.action.label}</button
+            >
+          {/if}
         </div>
         <button
           class="btn-ghost px-2 py-0.5 text-sm"

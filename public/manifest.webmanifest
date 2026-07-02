@@ -11,6 +11,26 @@
   "lang": "de",
   "dir": "ltr",
   "categories": ["health", "lifestyle", "productivity"],
+  "shortcuts": [
+    {
+      "name": "SOS – Akuter Meltdown",
+      "short_name": "SOS",
+      "url": "/?open=sos",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Timer starten",
+      "short_name": "Timer",
+      "url": "/#/timer",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Gedanke festhalten",
+      "short_name": "Brain-Dump",
+      "url": "/?open=braindump",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",

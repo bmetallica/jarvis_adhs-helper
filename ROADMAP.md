@@ -235,3 +235,20 @@ offline-first PWA. Verzeichnis: `/opt/adhs-helper` (Root). Tier: wächst mit den
   Sprach-Nudging + Pink Noise. DB v11. **Timer-Audio** lauter/länger + **Endlos-Alarm bis manuell
   gestoppt** (globales Stopp-Banner), **Timer-Reiter** (Timer/Fokus/Hyperfokus). Screenshots in README.
   Build + svelte-check grün (0/0).
+- 2026-07-02: **Erweiterungsrunde 3 komplett** (siehe `erweiterung.md`, alle 26 Punkte) —
+  **Härtung:** Web-Push zero-dep (VAPID/RFC 8291 in `serve.js`, Client lädt Erinnerungs-Plan hoch,
+  Krypto-Roundtrip getestet), Alarm-Lautstärke/Klangprofil/Auto-Stop, Wake Lock, App-Icon-Badge,
+  PWA-Shortcuts (SOS/Timer/Brain-Dump), SW-Update-Hinweis, JSON-Backup (Export/Import mit Vorschau),
+  Eltern-PIN-Gate (Medikation/Verbindung/Backup/Reset), Sync-Merge auf Datensatz-Ebene statt stillem
+  Überschreiben, Security-Header (CSP/HSTS) + `/healthz`, Vitest-Suite (14 Tests).
+  **Neue ADHS-Module:** Losgeh-Rechner (prepMin + „Gleich losmachen"-Vorwarnung + Live-Anzeige),
+  Zeitschätzungs-Trainer (Schätz-Chips, Ist-Nachfrage, Routine-Messung, neutrale Kalibrierung),
+  Dopamin-Menü (3 Gänge + Zufallszug), Warte-Modus (passende Häppchen bis zur Losgeh-Zeit),
+  Hausaufgaben per Foto (Vision→Fristen, Kategorie Schule), Impulskauf-Parkplatz (Reifezeit→Nachfrage
+  →Einkaufsliste), Reparatur-Ritual (3 Schritte, RSD-sicher, Familien-Tab + Annehmen), Body-Doubling
+  Stufe 1 (Fokus-Status + Anfeuern), Abend-Modul Wind-down (Auto-Dimmen + Ein-Tipp-Abendroutine),
+  Medikations-Peak-Fenster (Home-Karte), Familien-Quests (XP-Sammelziel + Einlösen).
+  **Infrastruktur:** ICS-Feed (`/calendar.ics` Token-geschützt, e2e getestet) + ICS-Import,
+  Kiosk-Ausbau (Termin-Leiste mit Losgeh-Zeit, Aufmerksamkeits-Ticker, Nacht-Dimmen),
+  KI-Wochenrückblick (stärkenorientiert, priority=low), Dockerfile + compose.yaml.
+  DB v12 (wishes/dopamine/quests/repairs/focusstatus). Build + svelte-check grün (0/0), 14/14 Tests.

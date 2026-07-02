@@ -11,7 +11,10 @@
   import { pet } from "$lib/stores/pet";
   import { hyperfocus } from "$lib/stores/hyperfocus";
   import { alarmsRunning, stopAllAlarms } from "$lib/feedback";
-  import { brainDumpOpen, openBrainDump, coachOpen, calmOpen, proposeOpen, sosOpen, whereOpen } from "$lib/stores/ui";
+  import { windDownActive } from "$lib/winddown";
+  import { brainDumpOpen, openBrainDump, coachOpen, calmOpen, proposeOpen, sosOpen, whereOpen, dopamineOpen, repairOpen } from "$lib/stores/ui";
+  import DopamineMenu from "$lib/components/DopamineMenu.svelte";
+  import RepairRitual from "$lib/components/RepairRitual.svelte";
   import HyperfocusInterrupt from "$lib/components/HyperfocusInterrupt.svelte";
   import BottomNav from "$lib/components/BottomNav.svelte";
   import BrainDump from "$lib/components/BrainDump.svelte";
@@ -43,9 +46,11 @@
   };
 
   // Reizarm-Modus / Bewegungsreduktion global auf <html> spiegeln.
+  // Wind-down: ab der eingestellten Abendzeit dimmt die App automatisch ins Calm-Theme.
   $effect(() => {
     const root = document.documentElement;
-    root.classList.toggle("calm-mode", $settings.calmMode);
+    const windDown = $settings.windDownStart ? windDownActive($now, $settings.windDownStart) : false;
+    root.classList.toggle("calm-mode", $settings.calmMode || windDown);
     root.classList.toggle("reduce-motion", $settings.reduceMotion);
     root.classList.toggle("large-text", $settings.largeText);
     root.classList.toggle("readable-font", $settings.readableFont);
@@ -144,6 +149,14 @@
 
 {#if $whereOpen}
   <WhereIsIt onclose={() => whereOpen.set(false)} />
+{/if}
+
+{#if $dopamineOpen}
+  <DopamineMenu onclose={() => dopamineOpen.set(false)} />
+{/if}
+
+{#if $repairOpen}
+  <RepairRitual onclose={() => repairOpen.set(false)} />
 {/if}
 
 {#if $auth.required && !$auth.authed}

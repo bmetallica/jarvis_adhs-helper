@@ -19,10 +19,18 @@ function audio(): AudioContext | null {
   }
 }
 
-/** Sinus-Ton mit sanftem Ein-/Ausblenden. Default-Lautstärke deutlich hörbar. */
+/** Nutzer-Lautstärke als Faktor: 0.5 (Default) = bisheriger Pegel, 1 = doppelt. */
+function volumeScale(): number {
+  const v = get(settings).alarmVolume;
+  const vol = typeof v === "number" && isFinite(v) ? v : 0.5;
+  return Math.min(1, Math.max(0.05, vol)) / 0.5;
+}
+
+/** Sinus-Ton mit sanftem Ein-/Ausblenden. Pegel folgt der Alarm-Lautstärke in den Einstellungen. */
 function tone(freq: number, durationMs: number, gain = 0.2, force = false) {
   const s = get(settings);
   if (!s.sound && !force) return;
+  gain = Math.min(0.9, gain * volumeScale());
   const ac = audio();
   if (!ac) return;
   if (ac.state === "suspended") void ac.resume();
@@ -66,21 +74,38 @@ export function successCue() {
 // --- Endlos-Alarm (läuft, bis manuell gestoppt) ---
 const alarms = new Map<string, ReturnType<typeof setInterval>>();
 
+/** Ein Durchlauf des gewählten Klangprofils. Exportiert für die Hörprobe in den Einstellungen. */
+export function playAlarmSample() {
+  const s = get(settings);
+  const profile = s.alarmSound ?? "triad";
+  if (profile === "bell") {
+    // Glocke: ein voller, langsam ausklingender Ton mit Oberton.
+    tone(1046.5, 900, 0.3, true);
+    setTimeout(() => tone(2093, 500, 0.1, true), 30);
+  } else if (profile === "soft") {
+    // Sanft: zwei weiche, tiefere Töne — für Reizempfindliche.
+    tone(523.25, 420, 0.18, true);
+    setTimeout(() => tone(659.25, 520, 0.18, true), 460);
+  } else {
+    // Dreiklang, kräftig (Default).
+    tone(880, 260, 0.28, true);
+    setTimeout(() => tone(660, 260, 0.28, true), 280);
+    setTimeout(() => tone(990, 380, 0.28, true), 560);
+  }
+  vibrate([250, 120, 250], s.haptics);
+}
+
 /** Lautes, wiederkehrendes Alarm-Signal (abgelaufener Timer) — bis stopAlarm(). */
 export function startAlarm(key: string) {
   if (alarms.has(key)) return;
   const s = get(settings);
-  const ring = () => {
-    // Dreiklang, kräftig.
-    tone(880, 260, 0.28, true);
-    setTimeout(() => tone(660, 260, 0.28, true), 280);
-    setTimeout(() => tone(990, 380, 0.28, true), 560);
-    vibrate([250, 120, 250], s.haptics);
-  };
-  ring();
-  const id = setInterval(ring, 1500);
+  playAlarmSample();
+  const id = setInterval(playAlarmSample, 1500);
   alarms.set(key, id);
   alarmsRunning.update((n) => n + 1);
+  // Optional: nach N Minuten selbst verstummen (0 = bis manuell gestoppt).
+  const autoMin = s.alarmAutoStopMin ?? 0;
+  if (autoMin > 0) setTimeout(() => stopAlarm(key), autoMin * 60_000);
 }
 
 export function stopAlarm(key: string) {

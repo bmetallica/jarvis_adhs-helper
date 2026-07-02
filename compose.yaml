@@ -1,0 +1,29 @@
+# ADHS-Helper via Docker Compose — `docker compose up -d`
+# Konfiguration wie beim systemd-Setup über Umgebungsvariablen (siehe DEPLOY.md).
+services:
+  adhs-helper:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      # JARVIS-Proxy (empfohlen): Gateway bleibt LAN-only, Key bleibt im Server.
+      JARVIS_UPSTREAM: "https://192.168.1.10:8088"
+      JARVIS_KEY: "jvp_hier_den_plugin_key"
+      JARVIS_INSECURE: "1" # selbstsigniertes Upstream-Zertifikat akzeptieren
+      # Master-Passwort (Pflicht, sobald die App aus dem Internet erreichbar ist):
+      APP_PASSWORD: "bitte-aendern"
+      APP_SESSION_SECRET: "bitte-64-zufallszeichen-eintragen"
+      # Web-Push-Absender (beliebige Kontakt-Adresse):
+      VAPID_SUBJECT: "mailto:familie@example.com"
+    volumes:
+      # Persistiert Web-Push-Abos/VAPID-Schlüssel und den ICS-Feed.
+      - adhs-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/healthz"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  adhs-data:

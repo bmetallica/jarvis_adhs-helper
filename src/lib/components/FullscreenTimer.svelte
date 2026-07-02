@@ -1,6 +1,7 @@
 <script lang="ts">
   // Vollbild-/Kioskmodus: große, aus Distanz ablesbare Scheibe (Wand-Tablet, Kinderzimmer).
   import type { TimerItem } from "$lib/types";
+  import { acquireWakeLock } from "$lib/wakelock";
   import TimerView from "./TimerView.svelte";
 
   interface Props {
@@ -8,6 +9,9 @@
     onclose: () => void;
   }
   let { timer, onclose }: Props = $props();
+
+  // Display anlassen, solange der Vollbild-Timer offen ist (Zeit sichtbar halten).
+  $effect(() => acquireWakeLock());
 
   let big = $state(280);
   $effect(() => {

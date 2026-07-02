@@ -6,18 +6,29 @@
   import PauseProtocol from "$lib/components/PauseProtocol.svelte";
   import WeeklySync from "$lib/components/WeeklySync.svelte";
   import Reframe from "$lib/components/Reframe.svelte";
+  import QuestBoard from "$lib/components/QuestBoard.svelte";
+  import RepairFeed from "$lib/components/RepairFeed.svelte";
   import { polls } from "$lib/stores/polls";
+  import { repairs } from "$lib/stores/repairs";
+  import { quests } from "$lib/stores/quests";
+  import { settings } from "$lib/stores/settings";
 
-  type Tab = "board" | "polls" | "load" | "wins" | "pause" | "sync" | "reframe";
+  type Tab = "board" | "polls" | "quests" | "load" | "wins" | "pause" | "repair" | "sync" | "reframe";
   let tab = $state<Tab>("board");
 
   const openPolls = $derived($polls.filter((p) => p.status === "open").length);
+  const openRepairs = $derived(
+    $repairs.filter((r) => r.toId === $settings.activeProfileId && !r.acknowledgedBy.includes($settings.activeProfileId ?? "")).length,
+  );
+  const questsDone = $derived($quests.filter((q) => q.status === "done").length);
   const tabs: { id: Tab; label: string; badge?: number }[] = $derived([
     { id: "board", label: "Board" },
     { id: "polls", label: "Abstimmungen", badge: openPolls },
+    { id: "quests", label: "Quests", badge: questsDone },
     { id: "load", label: "Lasten" },
     { id: "wins", label: "Wertschätzung" },
     { id: "pause", label: "Pause" },
+    { id: "repair", label: "Reparatur", badge: openRepairs },
     { id: "sync", label: "Wochen-Sync" },
     { id: "reframe", label: "Reframe" },
   ]);
@@ -47,8 +58,12 @@
     <MentalLoad />
   {:else if tab === "wins"}
     <AppreciationFeed />
+  {:else if tab === "quests"}
+    <QuestBoard />
   {:else if tab === "pause"}
     <PauseProtocol />
+  {:else if tab === "repair"}
+    <RepairFeed />
   {:else if tab === "sync"}
     <WeeklySync />
   {:else if tab === "reframe"}

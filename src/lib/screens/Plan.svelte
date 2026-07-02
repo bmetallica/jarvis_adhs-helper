@@ -14,6 +14,8 @@
   import RoutineBuilder from "$lib/components/RoutineBuilder.svelte";
   import CalendarView from "$lib/components/CalendarView.svelte";
   import DeadlineList from "$lib/components/DeadlineList.svelte";
+  import HomeworkCapture from "$lib/components/HomeworkCapture.svelte";
+  import IcsTools from "$lib/components/IcsTools.svelte";
   import ShoppingList from "$lib/components/ShoppingList.svelte";
   import MealPlan from "$lib/components/MealPlan.svelte";
   import HabitsView from "$lib/components/HabitsView.svelte";
@@ -96,7 +98,9 @@
     </div>
     {#if datesSub === "appointments"}
       <CalendarView />
+      <IcsTools />
     {:else}
+      <HomeworkCapture />
       <DeadlineList />
     {/if}
   {:else if tab === "routines"}

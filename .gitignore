@@ -8,3 +8,5 @@ deploy/certs/
 *.crt
 *.key
 *.pem
+# Laufzeitdaten des Servers (Web-Push-Abos, VAPID-Schlüssel, ICS-Feed) — enthält Secrets.
+server/data/

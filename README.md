@@ -59,19 +59,31 @@ Realität herum gebaut. Acht Designgesetze (Details in [`KONZEPT.md`](KONZEPT.md
 **Planung**
 - Routinen mit Ein-Schritt-Fokus + Vorlagen
 - Now-Next-Board, Aufgaben, globaler **Brain-Dump** (Text/Sprache)
-- **Termine mit Vorlauf-/Losgeh-Zeit**, Vorbereitungs-Checklisten, mehrstufige Erinnerungen
-- Fristen (Wall-of-Awful-Zerlegung), Einkaufsliste, Wochen-Essensplan, Gewohnheiten („Garten" ohne Streak-Scham)
+- **Losgeh-Rechner**: Termine rückwärts geplant (Anziehen + Weg + Puffer → „🚪 Losmachen um 14:25"),
+  gestaffelte Vorwarnungen, Vorbereitungs-Checklisten
+- **Warte-Modus**: Vor Terminen schlägt die App vor, was in die Restzeit wirklich passt
+- **Zeitschätzungs-Trainer**: Schätzung vs. Realität, neutrale Kalibrierung („Dinge dauern ×1,8")
+- Fristen (Wall-of-Awful-Zerlegung), **Hausaufgaben per Foto** (Zettel → Fristen via Vision),
+  Einkaufsliste, Wochen-Essensplan, Gewohnheiten („Garten" ohne Streak-Scham)
+- **ICS-Kalender**: Familien-Termine als Abo im Handy-Kalender + Import von Schulkalendern
 
 **Familie**
 - **Kooperatives Familien-Tier** (Canvas, 7 Wachstumsstufen, stirbt nie) + Accessoire-Shop + Belohnungs-Laden
 - **Nachrichtenboard / Familienchat**
 - **Abstimmungen** (allgemein) inkl. **Termin-Vorschlag mit Konfliktcheck und Ja/Nein-Abstimmung**
   (bei Zustimmung wird der Termin automatisch angelegt)
-- Mental-Load/Fair-Share, Wertschätzungs-Feed, Pause-/Atem-Protokoll, Wochen-Sync, RSD-Kommunikations-Reframe
+- Mental-Load/Fair-Share, Wertschätzungs-Feed, Pause-/Atem-Protokoll, Wochen-Sync (optional mit
+  **KI-Wochenrückblick**), RSD-Kommunikations-Reframe
+- **Familien-Quests** (gemeinsames XP-Ziel → gemeinsame Belohnung), **Reparatur-Ritual** nach
+  Konflikten (3 geführte Schritte, RSD-sicher), **Body-Doubling** („X fokussiert gerade an Y" + 👍)
 
 **Gesundheit & Reflexion**
 - **Tagebuch** mit Tagesansicht (vollständiger Tagesrückblick aller Aktivitäten)
-- **Medikations-Tracker** (Einnahme, nächste Dosis, Rebound-Fenster, Erinnerungen)
+- **Medikations-Tracker** (Einnahme, nächste Dosis, Rebound-Fenster, Bestand/Rezept-Warner,
+  **Fokus-Fenster-Anzeige** auf der Startseite)
+- **Dopamin-Menü** (vorbereitete schnelle Belohnungen in 3 „Gängen"), **Impulskauf-Parkplatz**
+  (Wünsche parken statt kaufen — nach der Reifezeit neutrale Nachfrage)
+- **Abend-Modul** (Wind-down: dimmt abends, erinnert sanft, Ein-Tipp-Abendroutine)
 - Stimmungs-/Energie-/Fokus-Check-in, Ruhe-Ecke (Atem-Guide + Fidget)
 
 **KI über JARVIS (optional, mit Offline-Fallback)**
@@ -79,8 +91,14 @@ Realität herum gebaut. Acht Designgesetze (Details in [`KONZEPT.md`](KONZEPT.md
   Vision (Beleg-OCR, Medikationsscan, Aufräum-Check)
 
 **Komfort & Bedienung**
-- „Braucht deine Aufmerksamkeit"-Übersicht + Navigations-Badges
-- Wand-Tablet-**Hauptquartier** (Wochenkalender mit Terminen & Essen, Familienchat, kleines Tier)
+- **Web-Push**: Erinnerungen kommen auch bei geschlossener App an (abhängigkeitsfreier
+  VAPID-Push-Dienst im eigenen Server — keine Drittanbieter)
+- „Braucht deine Aufmerksamkeit"-Übersicht + Navigations-Badges + **App-Icon-Badge**
+- PWA-**Shortcuts** (SOS/Timer/Brain-Dump vom Homescreen), **Wake Lock** bei Timern/Routinen
+- Alarm-**Lautstärke & Klangprofil** einstellbar, Update-Hinweis bei neuer Version
+- **Eltern-PIN** vor sensiblen Bereichen (Alltag bleibt für alle frei), **JSON-Backup** (Export/Import)
+- Wand-Tablet-**Hauptquartier** (Termin-Leiste mit Losgeh-Zeit, Aufmerksamkeits-Ticker,
+  Wochenkalender, Familienchat, Nacht-Dimmen)
 - Barrierefreiheit (große/lesbare Schrift, Reizarm-Modus, Bewegungsreduktion), Dark-Mode-first
 
 ---
@@ -128,6 +146,7 @@ Weitere Skripte:
 ```bash
 npm run build        # Produktions-Build nach dist/ (tsc-Check + vite build)
 npm run check        # svelte-check (Typen/Templates)
+npm run test         # Vitest (Kernlogik: Losgeh-Rechner, ICS, Push-Plan, Session-Tokens …)
 npm run preview      # gebauten Stand lokal servieren (Vite)
 npm run serve        # gebauten Stand mit dem Produktionsserver ausliefern (server/serve.js)
 ```
@@ -175,6 +194,16 @@ adhs.deine-domain.de {
   (signiertes Session-Cookie, Brute-Force-Limit). In der App kann man danach frei zwischen den
   Familien-Profilen wechseln.
 - Mit gültigem Zertifikat funktionieren Mikrofon/STT, PWA-Installation und Web-Push.
+
+### Alternative: Docker
+
+```bash
+# Werte in compose.yaml anpassen (Passwort, JARVIS, VAPID), dann:
+docker compose up -d --build
+```
+
+Multi-Stage-Build, Push-/ICS-Daten im Volume `adhs-data`, Healthcheck auf `/healthz` — Details in
+[`DEPLOY.md`](DEPLOY.md).
 
 Vollständige Anleitung inkl. TLS-Phasen und Fehlersuche: [`DEPLOY.md`](DEPLOY.md).
 

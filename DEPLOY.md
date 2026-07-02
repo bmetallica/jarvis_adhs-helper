@@ -68,6 +68,10 @@ Alle Einstellungen liegen in **`/etc/adhs-helper.env`** (Vorlage: `deploy/adhs-h
 | `JARVIS_UPSTREAM` | JARVIS-Gateway-URL → aktiviert den **Proxy** | *(leer = aus)*  |
 | `JARVIS_KEY` | Plugin-API-Key (jvp_…), serverseitig injiziert | *(leer)*          |
 | `JARVIS_INSECURE` | `1` = selbstsigniertes JARVIS-Zert akzeptieren | *(leer)*       |
+| `APP_PASSWORD` | Master-Passwort (Pflicht bei Internet-Exposition) | *(leer = aus)* |
+| `APP_SESSION_SECRET` | Festes Secret für Session-Cookies (sonst gelten Sessions nur bis zum Neustart) | *(zufällig)* |
+| `DATA_DIR` | Ablage für Web-Push-Abos/VAPID-Schlüssel + ICS-Feed | `server/data` |
+| `VAPID_SUBJECT` | Absender-Kontakt für Web-Push (`mailto:…`) | `mailto:admin@example.com` |
 
 ### Zentrale JARVIS-Anbindung & Accounts (Proxy-Modus)
 
@@ -248,6 +252,46 @@ nach außen sichtbare Stück und relayt `/api/*` intern an JARVIS.
 
 **Brute-Force-Schutz:** Nach mehreren Fehlversuchen pro IP sperrt der Login kurz (HTTP 429).
 **Abmelden:** über „Ich → Abmelden" (löscht das Session-Cookie).
+
+## Web-Push (Erinnerungen bei geschlossener App)
+
+Der Server bringt einen **abhängigkeitsfreien Web-Push-Dienst** mit (VAPID/RFC 8291 mit
+`node:crypto`). Architektur: Der Client lädt seinen „Erinnerungs-Plan" (Termine, Fristen,
+Medikation der nächsten 7 Tage) zum Server hoch; der Server ist nur der Wecker und stellt
+fällige Einträge als Push zu — auch wenn die App zu ist.
+
+- **Voraussetzung:** HTTPS (Reverse-Proxy oder TLS_CERT/KEY) — Push-Abos brauchen einen
+  sicheren Kontext.
+- **Aktivieren:** in der App unter **Ich → Erinnerungen → „Push auf diesem Gerät aktivieren"**
+  (pro Gerät; ein „Test senden"-Knopf prüft die Zustellung).
+- **Schlüssel/Abos** liegen in `DATA_DIR` (`server/data/push.json`) — bei Backups mitnehmen.
+- `VAPID_SUBJECT` auf eine echte Kontaktadresse setzen (`mailto:…`), manche Push-Dienste
+  verlangen das.
+
+## Kalender-Abo & -Import (ICS)
+
+- **Abo:** Der Server liefert die Familien-Termine als `GET /calendar.ics?token=…`
+  (Token-geschützt, read-only). Die Abo-URL steht in der App unter
+  **Plan → Termine → „Kalender verbinden (ICS)"** — in der Kalender-App des Handys als
+  „Kalender abonnieren" einfügen, dann stehen Termine auf dem Sperrbildschirm der Familie.
+- **Import:** Schul-/Vereinskalender als `.ics`-Datei an derselben Stelle importieren.
+
+## Monitoring
+
+`GET /healthz` antwortet ungeschützt mit `{"ok":true,…}` — geeignet für Uptime-Checks
+(z. B. Uptime-Kuma). Verrät keine sensiblen Daten.
+
+## Alternative: Docker / Docker Compose
+
+Statt systemd geht auch der Container-Weg (gleiche Umgebungsvariablen):
+
+```bash
+# im Repo-Verzeichnis; Werte vorher in compose.yaml anpassen (Passwort, JARVIS, VAPID)
+docker compose up -d --build
+```
+
+Der Container baut die PWA selbst (Multi-Stage) und persistiert Push/ICS-Daten im Volume
+`adhs-data`. TLS macht sinnvollerweise ein Reverse-Proxy davor (siehe oben).
 
 ## Fehlersuche
 
